@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+  <metadata>
+    <id>TaskSwitcher.portable</id>
+    <title>TaskSwitcher (Portable)</title>
+    <version>0.9.2.111</version>
+    <authors>Regin Larsen, James Sulak</authors>
+    <owners>Regin Larsen</owners>
+    <summary>An alternative alt-tab task switcher</summary>
+    <description>TaskSwitcher is for anyone who spends more time using a keyboard than a mouse. Instead of alt-tabbing through a (long) list of open windows, TaskSwitcher allows you to quickly switch to any window by typing in just a few characters of its title.</description>
+    <projectUrl>http://www.TaskSwitcher.io</projectUrl>
+    <tags>TaskSwitcher</tags>
+    <copyright>GNU GPL 3</copyright>
+    <licenseUrl>http://www.TaskSwitcher.io/</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <iconUrl>https://cdn.rawgit.com/kvakulo/TaskSwitcher/8ff2eaaee6092b05e00b21f78745c1d2d834e0ae/logo.png</iconUrl>
+    <releaseNotes></releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
