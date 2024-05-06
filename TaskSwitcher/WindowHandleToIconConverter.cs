@@ -24,15 +24,12 @@ namespace TaskSwitcher
             string key = "IconImage-" + handle;
             string shortCacheKey = key + "-shortCache";
             string longCacheKey = key + "-longCache";
-            BitmapImage iconImage = MemoryCache.Default.Get(shortCacheKey) as BitmapImage;
-            if (iconImage == null)
-            {
-                AppWindow window = new AppWindow(handle);
-                Icon icon = ShouldUseSmallTaskbarIcons() ? window.SmallWindowIcon : window.LargeWindowIcon;
-                iconImage = _iconToBitmapConverter.Convert(icon) ?? new BitmapImage();
-                MemoryCache.Default.Set(shortCacheKey, iconImage, DateTimeOffset.Now.AddSeconds(5));
-                MemoryCache.Default.Set(longCacheKey, iconImage, DateTimeOffset.Now.AddMinutes(120));
-            }
+            if (MemoryCache.Default.Get(shortCacheKey) is BitmapImage iconImage) return iconImage;
+            AppWindow window = new AppWindow(handle);
+            Icon icon = ShouldUseSmallTaskbarIcons() ? window.SmallWindowIcon : window.LargeWindowIcon;
+            iconImage = _iconToBitmapConverter.Convert(icon) ?? new BitmapImage();
+            MemoryCache.Default.Set(shortCacheKey, iconImage, DateTimeOffset.Now.AddSeconds(5));
+            MemoryCache.Default.Set(longCacheKey, iconImage, DateTimeOffset.Now.AddMinutes(120));
 
             return iconImage;
         }
@@ -41,10 +38,9 @@ namespace TaskSwitcher
         {
             string cacheKey = "SmallTaskbarIcons";
 
-            bool? cachedSetting = MemoryCache.Default.Get(cacheKey) as bool?;
-            if (cachedSetting != null)
+            if (MemoryCache.Default.Get(cacheKey) is bool cachedSetting)
             {
-                return cachedSetting.Value;
+                return cachedSetting;
             }
 
             using (
@@ -57,7 +53,7 @@ namespace TaskSwitcher
                     return false;
                 }
 
-                int.TryParse(value.ToString(), out var intValue);
+                int.TryParse(value.ToString(), out int intValue);
                 bool smallTaskbarIcons = intValue == 1;
                 MemoryCache.Default.Set(cacheKey, smallTaskbarIcons, DateTimeOffset.Now.AddMinutes(120));
                 return smallTaskbarIcons;

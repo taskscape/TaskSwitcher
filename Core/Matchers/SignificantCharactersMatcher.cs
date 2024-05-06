@@ -49,8 +49,8 @@ namespace TaskSwitcher.Core.Matchers
             string regexPattern = "";
             foreach (char p in pattern)
             {
-                char lowerP = Char.ToLowerInvariant(p);
-                char upperP = Char.ToUpperInvariant(p);
+                char lowerP = char.ToLowerInvariant(p);
+                char upperP = char.ToUpperInvariant(p);
                 regexPattern += string.Format(@"([^\p{{Lu}}\s]*?\s?)(\b{0}|{1})", Regex.Escape(lowerP + ""),
                     Regex.Escape(upperP + ""));
             }

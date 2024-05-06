@@ -229,5 +229,10 @@ namespace ManagedWinapi
         {
             if (!ReadOnly) { key = Keys.Tab; RefreshText(); }
         }
+
+        private void ctxMenu_Opening(object sender, CancelEventArgs e)
+        {
+
+        }
     }
 }
