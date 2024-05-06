@@ -20,7 +20,9 @@ using TaskSwitcher.Core;
 using TaskSwitcher.Core.Matchers;
 using TaskSwitcher.Properties;
 using Application = System.Windows.Application;
-using MenuItem = System.Windows.Forms.MenuItem;
+using // TODO MenuItem is no longer supported. Use ToolStripMenuItem instead. For more details see https://docs.microsoft.com/en-us/dotnet/core/compatibility/winforms#removed-controls
+MenuItem = // TODO MenuItem is no longer supported. Use ToolStripMenuItem instead. For more details see https://docs.microsoft.com/en-us/dotnet/core/compatibility/winforms#removed-controls
+System.Windows.Forms.ToolStripMenuItem;
 using MessageBox = System.Windows.MessageBox;
 
 namespace TaskSwitcher
@@ -146,27 +148,35 @@ namespace TaskSwitcher
         {
             Icon icon = Properties.Resources.icon;
 
-            MenuItem runOnStartupMenuItem = new MenuItem("Run on Startup", (s, e) => RunOnStartup(s as MenuItem))
+            // TODO MenuItem is no longer supported. Use ToolStripMenuItem instead. For more details see https://docs.microsoft.com/en-us/dotnet/core/compatibility/winforms#removed-controls
+            ToolStripMenuItem runOnStartupMenuItem = new("Run on Startup", null, (s, e) => RunOnStartup(s as ToolStripMenuItem))
             {
                 Checked = new AutoStart().IsEnabled
             };
 
+            // TODO ContextMenu is no longer supported. Use ContextMenuStrip instead. For more details see https://docs.microsoft.com/en-us/dotnet/core/compatibility/winforms#removed-controls
             _notifyIcon = new NotifyIcon
             {
                 Text = "TaskSwitcher",
                 Icon = icon,
                 Visible = true,
-                ContextMenu = new System.Windows.Forms.ContextMenu(new[]
+
+                ContextMenuStrip = new System.Windows.Forms.ContextMenuStrip
                 {
-                    new MenuItem("Options", (s, e) => Options()),
-                    runOnStartupMenuItem,
-                    new MenuItem("About", (s, e) => About()),
-                    new MenuItem("Exit", (s, e) => Quit())
-                })
+                    Items =
+    {
+        new ToolStripMenuItem("Options", null, (s, e) => Options()),
+        runOnStartupMenuItem,
+        new ToolStripMenuItem("About", null, (s, e) => About()),
+        new ToolStripMenuItem("Exit", null, (s, e) => Quit())
+    }
+                }
+
             };
         }
 
-        private static void RunOnStartup(MenuItem menuItem)
+        private static void RunOnStartup(// TODO MenuItem is no longer supported. Use ToolStripMenuItem instead. For more details see https://docs.microsoft.com/en-us/dotnet/core/compatibility/winforms#removed-controls
+MenuItem menuItem)
         {
             try
             {
