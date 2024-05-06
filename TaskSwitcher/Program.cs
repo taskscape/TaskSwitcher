@@ -74,19 +74,17 @@ namespace TaskSwitcher
 
         private static void RunAsAdministratorIfConfigured()
         {
-            if (RunAsAdminRequested() && !IsRunAsAdmin())
+            if (!RunAsAdminRequested() || IsRunAsAdmin()) return;
+            ProcessStartInfo proc = new ProcessStartInfo
             {
-                ProcessStartInfo proc = new ProcessStartInfo
-                {
-                    UseShellExecute = true,
-                    WorkingDirectory = Environment.CurrentDirectory,
-                    FileName = Assembly.GetEntryAssembly().CodeBase,
-                    Verb = "runas"
-                };
+                UseShellExecute = true,
+                WorkingDirectory = Environment.CurrentDirectory,
+                FileName = Assembly.GetEntryAssembly().CodeBase,
+                Verb = "runas"
+            };
 
-                Process.Start(proc);
-                Environment.Exit(0);
-            }
+            Process.Start(proc);
+            Environment.Exit(0);
         }
 
         private static bool RunAsAdminRequested()

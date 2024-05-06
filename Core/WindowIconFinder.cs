@@ -20,7 +20,7 @@ namespace TaskSwitcher.Core
                 // http://msdn.microsoft.com/en-us/library/windows/desktop/ms632625(v=vs.85).aspx
                 IntPtr outValue = WinApi.SendMessageTimeout(window.HWnd, 0x007F,
                     size == WindowIconSize.Small ? new IntPtr(2) : new IntPtr(1),
-                    IntPtr.Zero, WinApi.SendMessageTimeoutFlags.SMTO_ABORTIFHUNG, 100, out var response);
+                    IntPtr.Zero, WinApi.SendMessageTimeoutFlags.SMTO_ABORTIFHUNG, 100, out IntPtr response);
 
                 if (outValue == IntPtr.Zero || response == IntPtr.Zero)
                 {

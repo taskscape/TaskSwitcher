@@ -61,8 +61,7 @@ namespace TaskSwitcher.Core
             get
             {
                 IntPtr ownerHandle = WinApi.GetWindow(HWnd, WinApi.GetWindowCmd.GW_OWNER);
-                if (ownerHandle == IntPtr.Zero) return null;
-                return new AppWindow(ownerHandle);
+                return ownerHandle == IntPtr.Zero ? null : new AppWindow(ownerHandle);
             }
         }
 
@@ -85,9 +84,7 @@ namespace TaskSwitcher.Core
             if (!IsOwnerOrOwnerNotVisible()) return false;
             if (HasITaskListDeletedProperty()) return false;
             if (IsCoreWindow()) return false;
-            if (IsApplicationFrameWindow() && !HasAppropriateApplicationViewCloakType()) return false;
-
-            return true;
+            return !IsApplicationFrameWindow() || HasAppropriateApplicationViewCloakType();
         }
 
         private bool HasWindowTitle()
@@ -171,12 +168,9 @@ namespace TaskSwitcher.Core
             WinApi.EnumPropsEx(HWnd, (hwnd, lpszString, data, dwData) =>  
             {
                 string propName = Marshal.PtrToStringAnsi(lpszString);
-                if (propName == "ApplicationViewCloakType")
-                {
-                    hasAppropriateApplicationViewCloakType = data != 1;
-                    return 0;
-                }
-                return 1;
+                if (propName != "ApplicationViewCloakType") return 1;
+                hasAppropriateApplicationViewCloakType = data != 1;
+                return 0;
             }, IntPtr.Zero);
 
             return hasAppropriateApplicationViewCloakType;
@@ -191,9 +185,7 @@ namespace TaskSwitcher.Core
 
             try
             {
-                // ReSharper disable once RedundantAssignment
-                int size = buffer.Capacity;
-                if (WinApi.QueryFullProcessImageName(hprocess, 0, buffer, out size))
+                if (WinApi.QueryFullProcessImageName(hprocess, 0, buffer, out int _))
                 {
                     return buffer.ToString();
                 }
