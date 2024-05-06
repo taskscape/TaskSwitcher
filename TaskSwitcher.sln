@@ -1,18 +1,18 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.30723.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TaskSwitcher", "TaskSwitcher\TaskSwitcher.csproj", "{B28E183B-0E38-48A8-8A4E-B4AB7B23CE93}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TaskSwitcher", "TaskSwitcher\TaskSwitcher.csproj", "{B28E183B-0E38-48A8-8A4E-B4AB7B23CE93}"
 	ProjectSection(ProjectDependencies) = postProject
 		{FBD3EC1E-47E2-4D2D-81C9-D6506125A09A} = {FBD3EC1E-47E2-4D2D-81C9-D6506125A09A}
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ManagedWinapi", "ManagedWinapi\ManagedWinapi.csproj", "{FBD3EC1E-47E2-4D2D-81C9-D6506125A09A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ManagedWinapi", "ManagedWinapi\ManagedWinapi.csproj", "{FBD3EC1E-47E2-4D2D-81C9-D6506125A09A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Core", "Core\Core.csproj", "{B846514D-25BE-4274-972A-0E6E74DD0F8B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Core", "Core\Core.csproj", "{B846514D-25BE-4274-972A-0E6E74DD0F8B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Core.UnitTests", "Core.UnitTests\Core.UnitTests.csproj", "{CDB9C567-6CFA-4A52-AD14-7DDF82880281}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Core.UnitTests", "Core.UnitTests\Core.UnitTests.csproj", "{CDB9C567-6CFA-4A52-AD14-7DDF82880281}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".build", ".build", "{F5126702-2DD8-4A5F-8410-7327D583747C}"
 	ProjectSection(SolutionItems) = preProject
