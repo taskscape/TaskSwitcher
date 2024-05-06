@@ -1,5 +1,5 @@
 #define MyAppName "TaskSwitcher"
-#define MyAppPublisher "Regin Larsen"
+#define MyAppPublisher "Taskscape Ltd"
 #define MyAppURL "http://www.taskscape.com"
 #define MyAppExeName "TaskSwitcher.exe"
 #define MyAppPath SourcePath + "ProgramFiles"
