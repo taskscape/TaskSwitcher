@@ -47,17 +47,32 @@ namespace ManagedWinapi.Windows
         /// <summary>
         /// The SystemWindow instance that represents this list box.
         /// </summary>
-        public SystemWindow SystemWindow => sw;
+        public SystemWindow SystemWindow
+        {
+            get { return sw; }
+        }
 
         /// <summary>
         /// The number of elements in this list box.
         /// </summary>
-        public int Count => sw.SendGetMessage(LB_GETCOUNT);
+        public int Count
+        {
+            get
+            {
+                return sw.SendGetMessage(LB_GETCOUNT);
+            }
+        }
 
         /// <summary>
         /// The index of the selected element in this list box.
         /// </summary>
-        public int SelectedIndex => sw.SendGetMessage(LB_GETCURSEL);
+        public int SelectedIndex
+        {
+            get
+            {
+                return sw.SendGetMessage(LB_GETCURSEL);
+            }
+        }
 
         /// <summary>
         /// The selected element in this list box.
@@ -84,9 +99,9 @@ namespace ManagedWinapi.Windows
                     throw new ArgumentException("Argument out of range");
                 }
                 int length = sw.SendGetMessage(LB_GETTEXTLEN, (uint)index);
-                StringBuilder stringBuilder = new(length);
-                SystemWindow.SendMessage(new HandleRef(this, sw.HWnd), LB_GETTEXT, new IntPtr(index), stringBuilder);
-                return stringBuilder.ToString();
+                StringBuilder sb = new StringBuilder(length);
+                SystemWindow.SendMessage(new HandleRef(this, sw.HWnd), LB_GETTEXT, new IntPtr(index), sb);
+                return sb.ToString();
 
             }
         }
@@ -127,12 +142,21 @@ namespace ManagedWinapi.Windows
         /// <summary>
         /// The SystemWindow instance that represents this combo box.
         /// </summary>
-        public SystemWindow SystemWindow => sw;
+        public SystemWindow SystemWindow
+        {
+            get { return sw; }
+        }
 
         /// <summary>
         /// The number of elements in this combo box.
         /// </summary>
-        public int Count => sw.SendGetMessage(CB_GETCOUNT);
+        public int Count
+        {
+            get
+            {
+                return sw.SendGetMessage(CB_GETCOUNT);
+            }
+        }
 
         /// <summary>
         /// Gets an element by index.

@@ -1,6 +1,27 @@
+/*
+ * ManagedWinapi - A collection of .NET components that wrap PInvoke calls to 
+ * access native API by managed code. http://mwinapi.sourceforge.net/
+ * Copyright (C) 2006 Michael Schierl
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; see the file COPYING. if not, visit
+ * http://www.gnu.org/licenses/lgpl.html or write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
 using System;
+using System.Collections.Generic;
+using System.Text;
 using System.Windows.Forms;
-using static System.Windows.Forms.Application;
+using System.Runtime.InteropServices;
 
 namespace ManagedWinapi
 {
@@ -44,23 +65,24 @@ namespace ManagedWinapi
                     k.Release();
                 }
             }
-            KeyboardKey capslockKey = new(Keys.CapsLock);
+            KeyboardKey capslockKey = new KeyboardKey(Keys.CapsLock);
             int capslockstate = capslockKey.State;
             capslock = ((capslockstate & 0x01) == 0x01);
-            if (!capslock) return;
-            
-            // press caps lock
-            capslockKey.PressAndRelease();
-            DoEvents();
-            if ((capslockKey.State & 0x01) == 0x01)
+            if (capslock)
             {
-                // press shift
-                new KeyboardKey(Keys.ShiftKey).PressAndRelease();
-            }
-            DoEvents();
-            if ((capslockKey.State & 0x01) == 0x01)
-            {
-                throw new Exception("Cannot disable caps lock.");
+                // press caps lock
+                capslockKey.PressAndRelease();
+                Application.DoEvents();
+                if ((capslockKey.State & 0x01) == 0x01)
+                {
+                    // press shift
+                    new KeyboardKey(Keys.ShiftKey).PressAndRelease();
+                }
+                Application.DoEvents();
+                if ((capslockKey.State & 0x01) == 0x01)
+                {
+                    throw new Exception("Cannot disable caps lock.");
+                }
             }
         }
 
@@ -73,9 +95,9 @@ namespace ManagedWinapi
         {
             if (capslock) {
                 // press caps lock
-                KeyboardKey capslockKey = new(Keys.CapsLock);
+                KeyboardKey capslockKey = new KeyboardKey(Keys.CapsLock);
                 capslockKey.PressAndRelease();
-                DoEvents();
+                Application.DoEvents();
                 if ((capslockKey.State & 0x01) != 0x01)
                     throw new Exception("Cannot enable caps lock.");
             }
@@ -92,7 +114,7 @@ namespace ManagedWinapi
         /// Convenience method to send keys with all modifiers disabled.
         /// </summary>
         /// <param name="keys">The keys to send</param>
-        public static void Send(string keys)
+        public static void Send(String keys)
         {
             using (new LockKeyResetter())
             {
@@ -105,7 +127,7 @@ namespace ManagedWinapi
         /// <see cref="SendKeys.SendWait">SendKeys.SendWait</see>) with all modifiers disabled.
         /// </summary>
         /// <param name="keys"></param>
-        public static void SendWait(string keys)
+        public static void SendWait(String keys)
         {
             using (new LockKeyResetter())
             {

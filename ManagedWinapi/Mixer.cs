@@ -1,3 +1,22 @@
+/*
+ * ManagedWinapi - A collection of .NET components that wrap PInvoke calls to 
+ * access native API by managed code. http://mwinapi.sourceforge.net/
+ * Copyright (C) 2006 Michael Schierl
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; see the file COPYING. if not, visit
+ * http://www.gnu.org/licenses/lgpl.html or write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -16,16 +35,24 @@ namespace ManagedWinapi.Audio.Mixer
         /// <summary>
         /// Gets the number of available mixers in this system.
         /// </summary>
-        private static uint MixerCount => mixerGetNumDevs();
+        [CLSCompliant(false)]
+        public static uint MixerCount
+        {
+            get
+            {
+                return mixerGetNumDevs();
+            }
+        }
 
         /// <summary>
         /// Opens a mixer.
         /// </summary>
         /// <param name="index">The zero-based index of this mixer.</param>
         /// <returns>A reference to this mixer.</returns>
+        [CLSCompliant(false)]
         public static Mixer OpenMixer(uint index)
         {
-            if (index > MixerCount)
+            if (index < 0 || index > MixerCount)
                 throw new ArgumentException();
             IntPtr hMixer = IntPtr.Zero;
             EventDispatchingNativeWindow ednw = EventDispatchingNativeWindow.Instance;
@@ -41,6 +68,7 @@ namespace ManagedWinapi.Audio.Mixer
         private MIXERCAPS mc;
         private IList<DestinationLine> destLines = null;
         private bool createEvents;
+        private readonly EventDispatchingNativeWindow nativeWindow;
 
         /// <summary>
         /// Occurs when a control of this mixer changes value.
@@ -55,7 +83,8 @@ namespace ManagedWinapi.Audio.Mixer
         private Mixer(IntPtr hMixer)
         {
             this.hMixer = hMixer;
-            EventDispatchingNativeWindow.Instance.EventHandler += ednw_EventHandler;
+            nativeWindow = EventDispatchingNativeWindow.Instance;
+            nativeWindow.EventHandler += ednw_EventHandler;
             mixerGetDevCapsA(hMixer, ref mc, Marshal.SizeOf(mc));
         }
 
@@ -97,8 +126,8 @@ namespace ManagedWinapi.Audio.Mixer
         /// </summary>
         public bool CreateEvents
         {
-            get => createEvents;
-            set => createEvents = value;
+            get { return createEvents; }
+            set { createEvents = value; }
         }
 
         internal IntPtr Handle { get { return hMixer; } }
@@ -106,12 +135,24 @@ namespace ManagedWinapi.Audio.Mixer
         /// <summary>
         /// Gets the name of this mixer's sound card.
         /// </summary>
-        public string Name => mc.szPname;
+        public string Name
+        {
+            get
+            {
+                return mc.szPname;
+            }
+        }
 
         /// <summary>
         /// Gets the number of destination lines of this mixer.
         /// </summary>
-        public int DestinationLineCount => mc.cDestinations;
+        public int DestinationLineCount
+        {
+            get
+            {
+                return mc.cDestinations;
+            }
+        }
 
         /// <summary>
         /// Gets all destination lines of this mixer
@@ -120,14 +161,17 @@ namespace ManagedWinapi.Audio.Mixer
         {
             get
             {
-                if (destLines != null) return destLines;
-                int dlc = DestinationLineCount;
-                List<DestinationLine> l = new List<DestinationLine>(dlc);
-                for (int i = 0; i < dlc; i++)
+                if (destLines == null)
                 {
-                    l.Add(DestinationLine.GetLine(this, i));
+                    int dlc = DestinationLineCount;
+                    List<DestinationLine> l = new List<DestinationLine>(dlc);
+                    for (int i = 0; i < dlc; i++)
+                    {
+                        l.Add(DestinationLine.GetLine(this, i));
+                    }
+                    destLines = l.AsReadOnly();
+
                 }
-                destLines = l.AsReadOnly();
                 return destLines;
             }
         }
@@ -148,7 +192,7 @@ namespace ManagedWinapi.Audio.Mixer
             if (hMixer.ToInt32() != 0)
             {
                 mixerClose(hMixer);
-                EventDispatchingNativeWindow.Instance.EventHandler -= ednw_EventHandler;
+                nativeWindow.EventHandler -= ednw_EventHandler;
                 hMixer = IntPtr.Zero;
             }
         }

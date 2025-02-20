@@ -11,20 +11,14 @@
                 return matchResult;
             }
 
-            if (pattern == null)
+            if (pattern == null || !InputStartsWithPattern(input, pattern))
             {
                 matchResult.StringParts.Add(new StringPart(input));
                 return matchResult;
             }
 
-            if (!InputStartsWithPattern(input, pattern))
-            {
-                matchResult.StringParts.Add(new StringPart(input));
-                return matchResult;
-            }
-
-            string matchedPart = input.Substring(0, pattern.Length);
-            string restOfInput = input.Substring(pattern.Length);
+            string matchedPart = input[..pattern.Length];
+            string restOfInput = input[pattern.Length..];
 
             matchResult.Matched = true;
             matchResult.Score = 4;

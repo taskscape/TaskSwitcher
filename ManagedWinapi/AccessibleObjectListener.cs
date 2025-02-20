@@ -27,6 +27,7 @@ namespace ManagedWinapi.Accessibility
     /// <summary>
     /// Listens to events from the Windows accessibility system. These events are useful
     /// if you want to write a screenreader or similar program.
+    /// For more information search the MSDN-documentation for the keyword 'WinEvents'.
     /// </summary>
     public class AccessibleEventListener : Component
     {
@@ -43,6 +44,7 @@ namespace ManagedWinapi.Accessibility
         private GCHandle gch;
         private UInt32 processId = 0;
         private UInt32 threadId = 0;
+        private AccessibleEventFlags hookFlags = AccessibleEventFlags.OUTOFCONTEXT;
 
         /// <summary>
         /// Initializes a new instance of this class with the specified container.
@@ -63,60 +65,6 @@ namespace ManagedWinapi.Accessibility
             gch = GCHandle.Alloc(internalDelegate);
         }
 
-        /// <summary>
-        /// Enables this listener so that it reports accessible events.
-        /// </summary>
-        public bool Enabled
-        {
-            get
-            {
-                return enabled;
-            }
-            set
-            {
-                enabled = value;
-                updateListener();
-            }
-        }
-
-        /// <summary>
-        /// The minimal event type to listen to.
-        /// </summary>
-        public AccessibleEventType MinimalEventType
-        {
-            get { return min; }
-            set { min = value; updateListener(); }
-        }
-
-        /// <summary>
-        /// The maximal event type to listen to.
-        /// </summary>
-        public AccessibleEventType MaximalEventType
-        {
-            get { return max; }
-            set { max = value; updateListener(); }
-        }
-
-        /// <summary>
-        /// The Process ID to listen to.
-        /// Default 0 listens to all processes.
-        /// </summary>
-        public UInt32 ProcessId
-        {
-            get { return processId; }
-            set { processId = value; updateListener(); }
-        }
-
-        /// <summary>
-        /// The Thread ID to listen to.
-        /// Default 0 listens to all threads.
-        /// </summary> 
-        public UInt32 ThreadId
-        {
-            get { return threadId; }
-            set { threadId = value; updateListener(); }
-        }
-
         private void updateListener()
         {
             if (handle != IntPtr.Zero)
@@ -126,7 +74,7 @@ namespace ManagedWinapi.Accessibility
             }
             if (enabled)
             {
-                handle = SetWinEventHook(min, max, IntPtr.Zero, internalDelegate, processId, threadId, 0);
+                handle = SetWinEventHook(min, max, IntPtr.Zero, internalDelegate, processId, threadId, (uint)hookFlags);
             }
         }
 
@@ -159,6 +107,18 @@ namespace ManagedWinapi.Accessibility
             IAccessible iacc;
             object child;
             uint result = AccessibleObjectFromEvent(e.HWnd, e.ObjectID, e.ChildID, out iacc, out child);
+
+            // Note: AccessibleObjectFromEvent() sometimes fails due to missing IAccessible implementation of object and/or child
+            // This often happens for HTML content in Internet Explorer (e.g. for any <DIV> w/o 'role' attribute set).
+            // Try again without using ChildID and/or ObjectID, 
+            // i.e. ChildID==0 will return the parent object; ObjectID==0 will return the parent window
+            if (result != 0 && e.ChildID != 0)
+                // second chance: try to receive object instead of child
+                result = AccessibleObjectFromEvent(e.HWnd, e.ObjectID, 0, out iacc, out child);
+            if (result != 0)
+                // third chance: try to receive window instead of object or child
+                result = AccessibleObjectFromEvent(e.HWnd, 0, 0, out iacc, out child);
+
             if (result != 0) throw new Exception("AccessibleObjectFromPoint returned " + result);
             return new SystemAccessibleObject(iacc, (int)child);
         }
@@ -202,6 +162,7 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// Initializes a new instance of the AccessibleEventArgs class.
         /// </summary>
+        [CLSCompliant(false)]
         public AccessibleEventArgs(AccessibleEventType eventType,
             IntPtr hwnd, uint idObject, uint idChild, uint dwEventThread, uint dwmsEventTime)
         {
@@ -232,6 +193,7 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// Object ID.
         /// </summary>
+        [CLSCompliant(false)]
         public uint ObjectID
         {
             get { return idObject; }
@@ -240,6 +202,7 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// Child ID.
         /// </summary>
+        [CLSCompliant(false)]
         public uint ChildID
         {
             get { return idChild; }
@@ -248,6 +211,7 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// The thread that generated this event.
         /// </summary>
+        [CLSCompliant(false)]
         public uint Thread
         {
             get { return dwEventThread; }
@@ -256,6 +220,7 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// Time in milliseconds when the event was generated.
         /// </summary>
+        [CLSCompliant(false)]
         public uint Time
         {
             get { return dwmsEventTime; }
@@ -271,6 +236,28 @@ namespace ManagedWinapi.Accessibility
                 return AccessibleEventListener.GetAccessibleObject(this);
             }
         }
+    }
+
+
+    /// <summary>
+    /// This enumeration lists Flag values that specify the location of the hook function and of the events to be skipped.
+    /// </summary>
+    [Flags]
+    public enum AccessibleEventFlags
+    {
+
+        /// <summary>
+        /// The callback function is not mapped into the address space of the process that generates the event.
+        /// </summary>
+        OUTOFCONTEXT = 0x0000,
+        /// <summary>
+        /// Prevents this instance of the hook from receiving the events that are generated by the thread that is registering this hook.
+        /// </summary>
+        SKIPOWNTHREAD = 0x0001,
+        /// <summary>
+        /// Prevents this instance of the hook from receiving the events that are generated by threads in this process. This flag does not prevent threads from generating events.
+        /// </summary>
+        SKIPOWNPROCESS = 0x0002   
     }
 
     /// <summary>

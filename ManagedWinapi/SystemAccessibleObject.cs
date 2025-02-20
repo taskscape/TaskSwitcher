@@ -43,19 +43,19 @@ namespace ManagedWinapi.Accessibility
         /// The IAccessible instance of this object (if <see cref="ChildID"/> is zero)
         /// or its parent.
         /// </summary>
-        public IAccessible IAccessible => iacc;
+        public IAccessible IAccessible { get { return iacc; } }
 
         /// <summary>
         /// The underlying child ID
         /// </summary>
-        public int ChildID => childID;
+        public int ChildID { get { return childID; } }
 
         /// <summary>
         /// Create an accessible object from an IAccessible instance and a child ID.
         /// </summary>
         public SystemAccessibleObject(IAccessible iacc, int childID)
         {
-            ArgumentNullException.ThrowIfNull(iacc);
+            if (iacc == null) throw new ArgumentNullException();
             //if (childID < 0) throw new ArgumentException();
             if (childID != 0)
             {
@@ -68,7 +68,9 @@ namespace ManagedWinapi.Accessibility
                         childID = 0;
                     }
                 }
-                catch (ArgumentException) { }
+                //catch (ArgumentException) { }
+                //catch (InvalidCastException) { }
+                catch (Exception) { } // general error handling, e.g. IBM/Lotus Notes otherwise crashes with COMException here
             }
             this.iacc = iacc;
             this.childID = childID;
@@ -92,6 +94,7 @@ namespace ManagedWinapi.Accessibility
         /// <param name="window">The window</param>
         /// <param name="objectID">Which accessibility object to get</param>
         /// <returns></returns>
+        [CLSCompliant(false)]
         public static SystemAccessibleObject FromWindow(SystemWindow window, AccessibleObjectID objectID)
         {
             IAccessible iacc = (IAccessible)AccessibleObjectFromWindow(window == null ? IntPtr.Zero : window.HWnd, (uint)objectID, new Guid("{618736E0-3C3D-11CF-810C-00AA00389B71}"));
@@ -99,9 +102,26 @@ namespace ManagedWinapi.Accessibility
         }
 
         /// <summary>
+        /// Gets the automation object for a given window. 
+        /// This is a COM object implementing the IDispatch interface, commonly 
+        /// available from Microsoft Office windows.
+        /// </summary>
+        /// <param name="window">The window</param>
+        public static object COMObjectFromWindow(SystemWindow window)
+        {
+            return AccessibleObjectFromWindow(window == null ? IntPtr.Zero : window.HWnd, OBJID_NATIVEOM, new Guid("{00020400-0000-0000-C000-000000000046}"));
+        }
+
+        /// <summary>
         /// Gets an accessibility object for the mouse cursor.
         /// </summary>
-        public static SystemAccessibleObject MouseCursor => FromWindow(null, AccessibleObjectID.OBJID_CURSOR);
+        public static SystemAccessibleObject MouseCursor
+        {
+            get
+            {
+                return FromWindow(null, AccessibleObjectID.OBJID_CURSOR);
+            }
+        }
 
         /// <summary>
         /// Gets an accessibility object for the input caret, or
@@ -161,18 +181,48 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// The description of this accessible object.
         /// </summary>
-        public string Description => iacc.get_accDescription(childID);
+        public string Description
+        {
+            get
+            {
+                try
+                {
+                    return iacc.get_accDescription(childID);
+                }
+                catch (NotImplementedException)
+                {
+                    return "";
+                }
+            }
+        }
 
         /// <summary>
         /// The name of this accessible object.
         /// </summary>
-        public string Name => iacc.get_accName(childID);
+        public string Name
+        {
+            get
+            {
+                return iacc.get_accName(childID);
+            }
+            set
+            {
+                iacc.set_accName(childID, value);
+            }
+
+        }
 
         /// <summary>
         /// The role of this accessible object. This can either be an int
         /// (for a predefined role) or a string.
         /// </summary>
-        public object Role => iacc.get_accRole(childID);
+        public object Role
+        {
+            get
+            {
+                return iacc.get_accRole(childID);
+            }
+        }
 
         /// <summary>
         /// The role of this accessible object, as an integer. If this role
@@ -226,32 +276,93 @@ namespace ManagedWinapi.Accessibility
         {
             get
             {
-                int x, y, w, h;
-                iacc.accLocation(out x, out y, out w, out h, childID);
-                return new Rectangle(x, y, w, h);
-
+                try
+                {
+                    int x, y, w, h;
+                    iacc.accLocation(out x, out y, out w, out h, childID);
+                    return new Rectangle(x, y, w, h);
+                }
+                catch { return Rectangle.Empty; }
             }
         }
 
         /// <summary>
         /// The value of this accessible object.
         /// </summary>
-        public string Value => iacc.get_accValue(childID);
+        public string Value
+        {
+            get
+            {
+                try
+                {
+                    return iacc.get_accValue(childID);
+                }
+                catch (COMException)
+                {
+                    return null;
+                }
+            }
+            set
+            {
+                try
+                {
+                    iacc.set_accValue(childID, value);
+                }
+                catch (COMException) { }
+            }
+        }
 
         /// <summary>
         /// The state of this accessible object.
         /// </summary>
-        public int State => (int)iacc.get_accState(childID);
+        public int State
+        {
+            get
+            {
+                try
+                {
+                    return (int)iacc.get_accState(childID);
+                }
+                catch (COMException)
+                {
+                    return 0;
+                }
+                catch (NullReferenceException)
+                {
+                    return 0;
+                }
+            }
+        }
 
         /// <summary>
         /// A string representation of the state of this accessible object.
         /// </summary>
-        public string StateString => StateToString(State);
+        public string StateString
+        {
+            get
+            {
+                return StateToString(State);
+            }
+        }
 
         /// <summary>
         /// Whether this accessibile object is visible.
         /// </summary>
-        public bool Visible => (State & 0x8000) == 0;
+        public bool Visible
+        {
+            get
+            {
+                return (State & (int)AccStates.STATE_SYSTEM_INVISIBLE) == 0;
+            }
+        }
+
+        /// <summary>
+        /// Whether this accessibile state is set.
+        /// </summary>
+        public bool IsState(AccStates state)
+        {
+            return (State & (int)state) > 0;
+        }
 
         /// <summary>
         /// The parent of this accessible object, or <b>null</b> if none exists.
@@ -260,6 +371,31 @@ namespace ManagedWinapi.Accessibility
         {
             get
             {
+                try
+                {
+                    // Internet Explorer recognition sometimes is stuck (permanently returning RPC_E_SERVERFAULT) 
+                    // after requesting SAO that corresponds to a frame of an HTML frameset.
+                    // Such a frame is a RoleSystemClient with Name=<URI> and Description="MSAAHTML Registered Handler".
+                    // The child is a RoleSystemPane with Value=<URI>. 
+                    // Hence stop requesting for parent when RoleSystemPane with URI value is found
+                    //
+                    // see also:
+                    // About IE crashes after querying "MSAAHTML Registered Handler":
+                    // http://community.nvda-project.org/changeset/96cd890c7878fd4f8805409dd83f3dde5c996b4f
+                    // Some hint to ignore "MSAAHTML Registered Handler" in accessible ancestry:
+                    // http://community.nvda-project.org/changeset/88c491d954743a6a02f14b1f144e234587f68430
+                    // similar special case handling and ignoring of "MSAAHTML Registered Handler":
+                    // http://www.projky.com/dotnet/4.5.1/MS/Internal/AutomationProxies/Accessible.cs.html
+
+                    Uri uri = null;
+                    if (RoleIndex == (int)AccRoles.ROLE_SYSTEM_PANE && Uri.TryCreate(Value, UriKind.Absolute, out uri)
+                        && string.Equals(Window.Process.ProcessName, "iexplore", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // do not call parent
+                        return null;
+                    }
+                }
+                catch { }
                 if (childID != 0) return new SystemAccessibleObject(iacc, 0);
                 IAccessible p = (IAccessible)iacc.accParent;
                 if (p == null) return null;
@@ -315,7 +451,7 @@ namespace ManagedWinapi.Accessibility
         {
             get
             {
-                if (childID != 0) return [];
+                if (childID != 0) return new SystemAccessibleObject[0];
                 object sel;
                 try
                 {
@@ -323,19 +459,18 @@ namespace ManagedWinapi.Accessibility
                 }
                 catch (NotImplementedException)
                 {
-                    return [];
+                    return new SystemAccessibleObject[0];
                 }
                 catch (COMException)
                 {
-                    return [];
+                    return new SystemAccessibleObject[0];
                 }
-                
-                if (sel == null) return [];
+                if (sel == null) return new SystemAccessibleObject[0];
                 if (sel is IEnumVARIANT)
                 {
                     IEnumVARIANT e = (IEnumVARIANT)sel;
                     e.Reset();
-                    List<SystemAccessibleObject> retval = [];
+                    List<SystemAccessibleObject> retval = new List<SystemAccessibleObject>();
                     object[] tmp = new object[1];
                     while (e.Next(1, tmp, IntPtr.Zero) == 0)
                     {
@@ -348,9 +483,9 @@ namespace ManagedWinapi.Accessibility
                 {
                     if (sel is int && (int)sel < 0)
                     {
-                        return [];
+                        return new SystemAccessibleObject[0];
                     }
-                    return [ObjectToSAO(sel)];
+                    return new SystemAccessibleObject[] { ObjectToSAO(sel) };
                 }
             }
         }
@@ -388,17 +523,17 @@ namespace ManagedWinapi.Accessibility
             get
             {
                 // ID-referenced objects cannot have children
-                if (childID != 0) return [];
+                if (childID != 0) return new SystemAccessibleObject[0];
 
                 int cs = iacc.accChildCount, csReal;
-                object[] children = new object[cs * 2];
+                object[] children = new object[cs];
 
-                uint result = AccessibleChildren(iacc, 0, cs * 2, children, out csReal);
+                uint result = AccessibleChildren(iacc, 0, cs, children, out csReal);
                 if (result != 0 && result != 1)
-                    return [];
+                    return new SystemAccessibleObject[0];
                 if (csReal == 1 && children[0] is int && (int)children[0] < 0)
-                    return [];
-                List<SystemAccessibleObject> values = [];
+                    return new SystemAccessibleObject[0];
+                List<SystemAccessibleObject> values = new List<SystemAccessibleObject>();
                 for (int i = 0; i < children.Length; i++)
                 {
                     if (children[i] != null)
@@ -411,6 +546,66 @@ namespace ManagedWinapi.Accessibility
                     }
                 }
                 return values.ToArray();
+            }
+        }
+
+        /// <summary>
+        /// Get specific child of accessible object.
+        /// </summary>
+        public SystemAccessibleObject GetChild(int index)
+        {
+            // ID-referenced objects cannot have children
+            if (childID != 0) return null;
+
+            int cs = iacc.accChildCount, csReal;
+            object[] children = new object[1];
+
+            uint result = AccessibleChildren(iacc, index, 1, children, out csReal);
+            if (result != 0 && result != 1)
+                return null;
+            if (csReal == 1 && children[0] is int && (int)children[0] < 0)
+                return null;
+            List<SystemAccessibleObject> values = new List<SystemAccessibleObject>();
+            if (children[0] != null)
+            {
+                try
+                {
+                    return ObjectToSAO(children[0]);
+                }
+                catch (InvalidCastException) { }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Get number of children.
+        /// </summary>
+        public int ChildCount
+        {
+            get
+            {
+                if (childID != 0)
+                    // ID-referenced objects cannot have children
+                    return 0;
+                else
+                    return iacc.accChildCount;
+            }
+        }
+
+        /// <summary>
+        /// Highlight the accessible object with a red border.
+        /// </summary>
+        public void Highlight()
+        {
+            Rectangle objectLocation = Location;
+            SystemWindow window = Window;
+            Rectangle windowLocation = window.Rectangle;
+            using (WindowDeviceContext windowDC = window.GetDeviceContext(false))
+            {
+                using (Graphics g = windowDC.CreateGraphics())
+                {
+                    g.DrawRectangle(new Pen(Color.Red, 4), objectLocation.X - windowLocation.X, objectLocation.Y - windowLocation.Y, objectLocation.Width, objectLocation.Height);
+                }
             }
         }
 
@@ -441,22 +636,29 @@ namespace ManagedWinapi.Accessibility
         {
             if (ia1.Equals(ia2)) return true;
             if (Marshal.GetIUnknownForObject(ia1) == Marshal.GetIUnknownForObject(ia2)) return true;
-            if (ia1.accChildCount != ia2.accChildCount) return false;
-            SystemAccessibleObject sa1 = new SystemAccessibleObject(ia1, 0);
-            SystemAccessibleObject sa2 = new SystemAccessibleObject(ia2, 0);
-            if (sa1.Window.HWnd != sa2.Window.HWnd) return false;
-            if (sa1.Location != sa2.Location) return false;
-            if (sa1.DefaultAction != sa2.DefaultAction) return false;
-            if (sa1.Description != sa2.Description) return false;
-            if (sa1.KeyboardShortcut != sa2.KeyboardShortcut) return false;
-            if (sa1.Name != sa2.Name) return false;
-            if (!sa1.Role.Equals(sa2.Role)) return false;
-            if (sa1.State != sa2.State) return false;
-            if (sa1.Value != sa2.Value) return false;
-            if (sa1.Visible != sa2.Visible) return false;
-            if (ia1.accParent == null && ia2.accParent == null) return true;
-            if (ia1.accParent == null || ia2.accParent == null) return false;
-            bool de =  DeepEquals((IAccessible)ia1.accParent, (IAccessible)ia2.accParent);
+            try
+            {
+                if (ia1.accChildCount != ia2.accChildCount) return false;
+                SystemAccessibleObject sa1 = new SystemAccessibleObject(ia1, 0);
+                SystemAccessibleObject sa2 = new SystemAccessibleObject(ia2, 0);
+                if (sa1.Window.HWnd != sa2.Window.HWnd) return false;
+                if (sa1.Location != sa2.Location) return false;
+                if (sa1.DefaultAction != sa2.DefaultAction) return false;
+                if (sa1.Description != sa2.Description) return false;
+                if (sa1.KeyboardShortcut != sa2.KeyboardShortcut) return false;
+                if (sa1.Name != sa2.Name) return false;
+                if (!sa1.Role.Equals(sa2.Role)) return false;
+                if (sa1.State != sa2.State) return false;
+                if (sa1.Value != sa2.Value) return false;
+                if (sa1.Visible != sa2.Visible) return false;
+                if (ia1.accParent == null && ia2.accParent == null) return true;
+                if (ia1.accParent == null || ia2.accParent == null) return false;
+            }
+            catch (COMException)
+            {
+                return false;
+            }
+            bool de = DeepEquals((IAccessible)ia1.accParent, (IAccessible)ia2.accParent);
             return de;
         }
 
@@ -507,6 +709,8 @@ namespace ManagedWinapi.Accessibility
 
         #region PInvoke Declarations
 
+        const uint OBJID_NATIVEOM = 0xFFFFFFF0;
+
         [DllImport("oleacc.dll")]
         private static extern IntPtr AccessibleObjectFromPoint(POINT pt, [Out, MarshalAs(UnmanagedType.Interface)] out IAccessible accObj, [Out] out object ChildID);
         [DllImport("oleacc.dll")]
@@ -535,6 +739,7 @@ namespace ManagedWinapi.Accessibility
     /// This enumeration lists all kinds of accessible objects that can
     /// be directly assigned to a window.
     /// </summary>
+    [CLSCompliant(false)]
     public enum AccessibleObjectID : uint
     {
         /// <summary>
@@ -598,5 +803,375 @@ namespace ManagedWinapi.Accessibility
         /// A sound this window is playing.
         /// </summary>
         OBJID_SOUND = 0xFFFFFFF5
+    }
+
+    /// <summary>
+    /// This enumeration lists all kinds of accessible roles as returned by IAccessible::get_accRole()
+    /// Constants for MSAA accessibility roles from oleacc.h
+    /// </summary>
+    public enum AccRoles
+    {
+        /// <summary>
+        /// The object represents an alert or a condition that a user should be notified about. This role is used only for objects that embody an alert but are not associated with another user interface element, such as a message box, graphic, text, or sound.
+        /// </summary>
+        ROLE_SYSTEM_ALERT = 8,
+
+        /// <summary>
+        /// The object represents an animation control whose content changes over time, such as a control that displays a series of bitmap frames. Animation controls are displayed when files are copied or when some other time-consuming task is performed.
+        /// </summary>
+        ROLE_SYSTEM_ANIMATION = 54,
+
+        /// <summary>
+        /// The object represents a main window for an application.
+        /// </summary>
+        ROLE_SYSTEM_APPLICATION = 14,
+
+        /// <summary>
+        /// The object represents a window border. The entire border is represented by a single object rather than by separate objects for each side.
+        /// </summary>
+        ROLE_SYSTEM_BORDER = 19,
+
+        /// <summary>
+        /// The object represents a button that expands a list of items.
+        /// </summary>
+        ROLE_SYSTEM_BUTTONDROPDOWN = 56,
+
+        /// <summary>The object represents a button that expands a grid.
+        /// </summary>
+        ROLE_SYSTEM_BUTTONDROPDOWNGRID = 58,
+
+        /// <summary>
+        /// The object represents a button that expands a menu.
+        /// </summary>
+        ROLE_SYSTEM_BUTTONMENU = 57,
+
+        /// <summary>
+        /// The object represents the system caret.
+        /// </summary>
+        ROLE_SYSTEM_CARET = 7,
+
+        /// <summary>
+        /// The object represents a cell within a table.
+        /// </summary>
+        ROLE_SYSTEM_CELL = 29,
+
+        /// <summary>
+        /// The object represents a cartoon-like graphic object, such as Microsoft Office Assistant, which is displayed to provide help to users of an application.
+        /// </summary>
+        ROLE_SYSTEM_CHARACTER = 32,
+
+        /// <summary>
+        /// The object represents a graphical image used to chart data.
+        /// </summary>
+        ROLE_SYSTEM_CHART = 17,
+
+        /// <summary>
+        /// The object represents a check box control: an option that is selected or cleared independently of other options.
+        /// </summary>
+        ROLE_SYSTEM_CHECKBUTTON = 44,
+
+        /// <summary>
+        /// The object represents a window's client area. Microsoft Active Accessibility uses this role as a default if there is a question about the role of a UI element.
+        /// </summary>
+        ROLE_SYSTEM_CLIENT = 10,
+
+        /// <summary>The object represents a control that displays time.
+        /// </summary>
+        ROLE_SYSTEM_CLOCK = 61,
+
+        /// <summary>
+        /// The object represents a column of cells within a table.
+        /// </summary>
+        ROLE_SYSTEM_COLUMN = 27,
+
+        /// <summary>
+        /// The object represents a column header, providing a visual label for a column in a table.
+        /// </summary>
+        ROLE_SYSTEM_COLUMNHEADER = 25,
+
+        /// <summary>
+        /// The object represents a combo box: an edit control with an associated list box that provides a set of predefined choices.
+        /// </summary>
+        ROLE_SYSTEM_COMBOBOX = 46,
+
+        /// <summary>
+        /// The object represents the system's mouse pointer.
+        /// </summary>
+        ROLE_SYSTEM_CURSOR = 6,
+
+        /// <summary>
+        /// The object represents a graphical image that is used to diagram data.
+        /// </summary>
+        ROLE_SYSTEM_DIAGRAM = 53,
+
+        /// <summary>
+        /// The object represents a dial or knob.
+        /// </summary>
+        ROLE_SYSTEM_DIAL = 49,
+
+        /// <summary>
+        /// The object represents a dialog box or message box.
+        /// </summary>
+        ROLE_SYSTEM_DIALOG = 18,
+
+        /// <summary>
+        /// The object represents a document window. A document window is always contained within an application window. This role applies only to MDI windows and refers to the object that contains the MDI title bar.
+        /// </summary>
+        ROLE_SYSTEM_DOCUMENT = 15,
+
+        /// <summary>
+        /// The object represents the calendar control, SysDateTimePick32. The Microsoft Active Accessibility runtime component uses this role to indicate that either a date or a calendar control has been found.
+        /// </summary>
+        ROLE_SYSTEM_DROPLIST = 47,
+
+        /// <summary>
+        /// The object represents a mathematical equation.
+        /// </summary>
+        ROLE_SYSTEM_EQUATION = 55,
+
+        /// <summary>
+        /// The object represents a picture.
+        /// </summary>
+        ROLE_SYSTEM_GRAPHIC = 40,
+
+        /// <summary>
+        /// The object represents a special mouse pointer that allows a user to manipulate user interface elements such as windows. One example of this involves resizing a window by dragging its lower-right corner.
+        /// </summary>
+        ROLE_SYSTEM_GRIP = 4,
+
+        /// <summary>
+        /// The object logically groups other objects. There is not always a parent-child relationship between the grouping object and the objects it contains.
+        /// </summary>
+        ROLE_SYSTEM_GROUPING = 20,
+
+        /// <summary>
+        /// The object displays a help topic in the form of a tooltip or help balloon.
+        /// </summary>
+        ROLE_SYSTEM_HELPBALLOON = 31,
+
+        /// <summary>
+        /// The object represents a keyboard shortcut field that allows the user to enter a combination or sequence of keystrokes.
+        /// </summary>
+        ROLE_SYSTEM_HOTKEYFIELD = 50,
+
+        /// <summary>
+        /// The object represents an indicator, such as a pointer graphic, that points to the current item.
+        /// </summary>
+        ROLE_SYSTEM_INDICATOR = 39,
+
+        /// <summary>
+        /// The object represents an edit control that is designed for an IP address. The edit control is divided into sections, each for a specific part of the IP address.
+        /// </summary>
+        ROLE_SYSTEM_IPADDRESS = 63, // Not defined in all oleacc.h versions
+
+        /// <summary>The object represents a link to something else. This object might look like text or a graphic, but it acts like a button.
+        /// </summary>
+        ROLE_SYSTEM_LINK = 30,
+
+        /// <summary>
+        /// The object represents a list box, allowing the user to select one or more items.
+        /// </summary>
+        ROLE_SYSTEM_LIST = 33,
+
+        /// <summary>
+        /// The object represents an item in a list box or in the list portion of a combo box, drop-down list box, or drop-down combo box.
+        /// </summary>
+        ROLE_SYSTEM_LISTITEM = 34,
+
+        /// <summary>The object represents the menu bar (positioned beneath the title bar of a window) from which users select menus.
+        /// </summary>
+        ROLE_SYSTEM_MENUBAR = 2,
+
+        /// <summary>
+        /// The object represents a menu item: an menu entry that the user can choose to carry out a command, select an option, or display another menu. Functionally, a menu item is equivalent to a push button, a radio button, a check box, or a menu.
+        /// </summary>
+        ROLE_SYSTEM_MENUITEM = 12,
+
+        /// <summary>
+        /// The object represents a menu: a list of options, each with a specific action. All menu types must have role, including the drop-down menus which are displayed when selected from a menu bar; and shortcut menus, which are displayed by clicking the right mouse button.
+        /// </summary>
+        ROLE_SYSTEM_MENUPOPUP = 11,
+
+        /// <summary>
+        /// The object represents an outline or a tree structure, such as a tree view control, that displays a hierarchical list and allows the user to expand and collapse branches.
+        /// </summary>
+        ROLE_SYSTEM_OUTLINE = 35,
+
+        /// <summary>
+        /// The object represents an item that navigates like an outline item. The UP and DOWN ARROW keys are used to navigate through the outline. However, instead of expanding and collapsing when the LEFT and RIGHT ARROW key is pressed, these menus expand or collapse when the SPACEBAR or ENTER key is pressed and the item has focus. 
+        /// </summary>
+        ROLE_SYSTEM_OUTLINEBUTTON = 64, // Not defined in all oleacc.h versions
+
+        /// <summary>
+        /// The object represents an item in an outline or tree structure.
+        /// </summary>
+        ROLE_SYSTEM_OUTLINEITEM = 36,
+
+        /// <summary>
+        /// The object represents a page tab. The only child of a page tab control is a ROLE_SYSTEM_GROUPING object that has the contents of the associated page.
+        /// </summary>
+        ROLE_SYSTEM_PAGETAB = 37,
+
+        /// <summary>
+        /// The object represents a container of page tab controls.
+        /// </summary>
+        ROLE_SYSTEM_PAGETABLIST = 60,
+
+        /// <summary>
+        /// The object represents a pane within a frame or a document window. Users can navigate between panes and within the contents of the current pane, but cannot navigate between items in different panes. Thus, panes represent a grouping level that is lower than frames or document windows, but higher than individual controls. The user navigates between panes by pressing TAB, F6, or CTRL+TAB, depending on the context.
+        /// </summary>
+        ROLE_SYSTEM_PANE = 16,
+
+        /// <summary>
+        /// The object represents a progress bar, which dynamically shows how much of an operation in progress has completed. This control takes no user input.
+        /// </summary>
+        ROLE_SYSTEM_PROGRESSBAR = 48,
+
+        /// <summary>
+        /// The object represents a progress bar, which dynamically shows how much of an operation in progress has completed. This control takes no user input.
+        /// </summary>
+        ROLE_SYSTEM_PROPERTYPAGE = 38,
+
+        /// <summary>
+        /// The object represents a push-button control.
+        /// </summary>
+        ROLE_SYSTEM_PUSHBUTTON = 43,
+
+        /// <summary>
+        /// The object represents an option button (formerly, a radio button). It is one of a group of mutually exclusive options. All objects that share the same parent and that have this attribute are assumed to be part of a single mutually exclusive group. To divide these objects into separate groups, use ROLE_SYSTEM_GROUPING objects.
+        /// </summary>
+        ROLE_SYSTEM_RADIOBUTTON = 45,
+
+        /// <summary>
+        /// The object represents a row of cells within a table.
+        /// </summary>
+        ROLE_SYSTEM_ROW = 28,
+
+        /// <summary>
+        /// The object represents a row header, which provides a visual label for a table row.
+        /// </summary>
+        ROLE_SYSTEM_ROWHEADER = 26,
+
+        /// <summary>
+        /// The object represents a vertical or horizontal scroll bar, which is part of the client area or is used in a control.
+        /// </summary>
+        ROLE_SYSTEM_SCROLLBAR = 3,
+
+        /// <summary>
+        /// The object is used to visually divide a space into two regions. Examples of separator objects include a separator menu item, and a bar that divides split panes within a window.
+        /// </summary>
+        ROLE_SYSTEM_SEPARATOR = 21,
+
+        /// <summary>
+        /// The object represents a slider, which allows the user to adjust a setting in particular increments between minimum and maximum values.
+        /// </summary>
+        ROLE_SYSTEM_SLIDER = 51,
+
+        /// <summary>
+        /// The object represents a system sound, which is associated with various system events.
+        /// </summary>
+        ROLE_SYSTEM_SOUND = 5,
+
+        /// <summary>
+        /// The object represents a spin box, which is a control that allows the user to increment or decrement the value displayed in a separate "buddy" control that is associated with the spin box.
+        /// </summary>
+        ROLE_SYSTEM_SPINBUTTON = 52,
+
+        /// <summary>
+        /// The object represents a button on a toolbar that has a drop-down list icon that is directly adjacent to the button.
+        /// </summary>
+        ROLE_SYSTEM_SPLITBUTTON = 62, // Not defined in all oleacc.h version
+
+        /// <summary>
+        /// The object represents read-only text, such as labels for other controls or instructions in a dialog box. Static text cannot be modified or selected.
+        /// </summary>
+        ROLE_SYSTEM_STATICTEXT = 41,
+
+        /// <summary>
+        /// The object represents a status bar, which is an area at the bottom of a window and which displays information about the current operation, state of the application, or selected object. The status bar has multiple fields, which display different kinds of information.
+        /// </summary>
+        ROLE_SYSTEM_STATUSBAR = 23,
+
+        /// <summary>
+        /// The object represents a table that contains rows and columns of cells, and, optionally, row headers and column headers.
+        /// </summary>
+        ROLE_SYSTEM_TABLE = 24,
+
+        /// <summary>
+        /// The object represents selectable text that allows edits or is designated as read-only.
+        /// </summary>
+        ROLE_SYSTEM_TEXT = 42,
+
+        /// <summary>
+        /// The object represents a title or caption bar for a window.
+        /// </summary>
+        ROLE_SYSTEM_TITLEBAR = 1,
+
+        /// <summary>
+        /// The object represents a toolbar, which is a grouping of controls that provides easy access to frequently used features.
+        /// </summary>
+        ROLE_SYSTEM_TOOLBAR = 22,
+
+        /// <summary>
+        /// The object represents a tooltip that provides helpful hints.
+        /// </summary>
+        ROLE_SYSTEM_TOOLTIP = 13,
+
+        /// <summary>
+        /// The object represents blank space between other objects.
+        /// </summary>
+        ROLE_SYSTEM_WHITESPACE = 59,
+
+        /// <summary>
+        /// The object represents the window frame, which contains child objects such as a title bar, client, and other objects of a window.
+        /// </summary>
+        ROLE_SYSTEM_WINDOW = 9
+    }
+
+    /// <summary>
+    /// This enumeration lists all kinds of accessible states as returned by IAccessible::get_accState()
+    /// Constants for MSAA accessibility roles from oleacc.h/WinUser.h
+    /// </summary>
+    public enum AccStates
+    {
+        // From oleacc.h:
+#pragma warning disable CS1591 // Fehledes XML-Kommentar für öffentlich sichtbaren Typ oder Element
+        STATE_SYSTEM_NORMAL = 0x0,
+        STATE_SYSTEM_HASPOPUP = 0x40000000,
+
+        // From WinUser.h:
+        STATE_SYSTEM_UNAVAILABLE = 0x1, // Disabled
+        STATE_SYSTEM_SELECTED = 0x2,
+        STATE_SYSTEM_FOCUSED = 0x4,
+        STATE_SYSTEM_PRESSED = 0x8,
+        STATE_SYSTEM_CHECKED = 0x10,
+        STATE_SYSTEM_MIXED = 0x20, //3-state checkbox or toolbar button
+        STATE_SYSTEM_INDETERMINATE = STATE_SYSTEM_MIXED,
+        STATE_SYSTEM_READONLY = 0x40,
+        STATE_SYSTEM_HOTTRACKED = 0x80,
+        STATE_SYSTEM_DEFAULT = 0x100,
+        STATE_SYSTEM_EXPANDED = 0x200,
+        STATE_SYSTEM_COLLAPSED = 0x400,
+        STATE_SYSTEM_BUSY = 0x800,
+        STATE_SYSTEM_FLOATING = 0x1000, // Children "owned" not "contained" by parent
+        STATE_SYSTEM_MARQUEED = 0x2000,
+        STATE_SYSTEM_ANIMATED = 0x4000,
+        STATE_SYSTEM_INVISIBLE = 0x8000,
+        STATE_SYSTEM_OFFSCREEN = 0x10000,
+        STATE_SYSTEM_SIZEABLE = 0x20000,
+        STATE_SYSTEM_MOVEABLE = 0x40000,
+        STATE_SYSTEM_SELFVOICING = 0x80000,
+        STATE_SYSTEM_FOCUSABLE = 0x100000,
+        STATE_SYSTEM_SELECTABLE = 0x200000,
+        STATE_SYSTEM_LINKED = 0x400000,
+        STATE_SYSTEM_TRAVERSED = 0x800000,
+        STATE_SYSTEM_MULTISELECTABLE = 0x1000000, // Supports multiple selection
+        STATE_SYSTEM_EXTSELECTABLE = 0x2000000, // Supports extended selection
+        STATE_SYSTEM_ALERT_LOW = 0x4000000, // This information is of low priority
+        STATE_SYSTEM_ALERT_MEDIUM = 0x8000000, // This information is of medium priority
+        STATE_SYSTEM_ALERT_HIGH = 0x10000000, // This information is of high priority
+        STATE_SYSTEM_PROTECTED = 0x20000000, // access to this is restricted
+        STATE_SYSTEM_VALID = 0x3FFFFFFF
+#pragma warning restore CS1591 // Fehledes XML-Kommentar für öffentlich sichtbaren Typ oder Element
     }
 }

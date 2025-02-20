@@ -50,7 +50,6 @@ namespace ManagedWinapi
             // 
             // ctxMenu
             // 
-            ctxMenu.ImageScalingSize = new System.Drawing.Size(24, 24);
             ctxMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             noneMenuItem,
             sep1,
@@ -64,80 +63,79 @@ namespace ManagedWinapi
             this.winMenuItem,
             this.shiftMenuItem});
             ctxMenu.Name = "ctxMenu";
-            ctxMenu.Size = new System.Drawing.Size(130, 286);
-            ctxMenu.Opening += new System.ComponentModel.CancelEventHandler(this.ctxMenu_Opening);
+            ctxMenu.Size = new System.Drawing.Size(111, 214);
             // 
             // noneMenuItem
             // 
             noneMenuItem.Name = "noneMenuItem";
-            noneMenuItem.Size = new System.Drawing.Size(129, 30);
+            noneMenuItem.Size = new System.Drawing.Size(110, 22);
             noneMenuItem.Text = "None";
             noneMenuItem.Click += new System.EventHandler(this.noneMenuItem_Click);
             // 
             // sep1
             // 
             sep1.Name = "sep1";
-            sep1.Size = new System.Drawing.Size(126, 6);
+            sep1.Size = new System.Drawing.Size(107, 6);
             // 
             // tabMenuItem
             // 
             this.tabMenuItem.Name = "tabMenuItem";
-            this.tabMenuItem.Size = new System.Drawing.Size(129, 30);
+            this.tabMenuItem.Size = new System.Drawing.Size(110, 22);
             this.tabMenuItem.Click += new System.EventHandler(this.tabMenuItem_Click);
             // 
             // returnMenuItem
             // 
             this.returnMenuItem.Name = "returnMenuItem";
-            this.returnMenuItem.Size = new System.Drawing.Size(129, 30);
+            this.returnMenuItem.Size = new System.Drawing.Size(110, 22);
             this.returnMenuItem.Click += new System.EventHandler(this.returnMenuItem_Click);
             // 
             // escMenuItem
             // 
             this.escMenuItem.Name = "escMenuItem";
-            this.escMenuItem.Size = new System.Drawing.Size(129, 30);
+            this.escMenuItem.Size = new System.Drawing.Size(110, 22);
             this.escMenuItem.Click += new System.EventHandler(this.escMenuItem_Click);
             // 
             // prtscMenuItem
             // 
             this.prtscMenuItem.Name = "prtscMenuItem";
-            this.prtscMenuItem.Size = new System.Drawing.Size(129, 30);
+            this.prtscMenuItem.Size = new System.Drawing.Size(110, 22);
             this.prtscMenuItem.Click += new System.EventHandler(this.prtscMenuItem_Click);
             // 
             // sep2
             // 
             sep2.Name = "sep2";
-            sep2.Size = new System.Drawing.Size(126, 6);
+            sep2.Size = new System.Drawing.Size(107, 6);
             // 
             // ctrlMenuItem
             // 
             this.ctrlMenuItem.Name = "ctrlMenuItem";
-            this.ctrlMenuItem.Size = new System.Drawing.Size(129, 30);
+            this.ctrlMenuItem.Size = new System.Drawing.Size(110, 22);
             this.ctrlMenuItem.Click += new System.EventHandler(this.ctrlMenuItem_Click);
             // 
             // altMenuItem
             // 
             this.altMenuItem.Name = "altMenuItem";
-            this.altMenuItem.Size = new System.Drawing.Size(129, 30);
+            this.altMenuItem.Size = new System.Drawing.Size(110, 22);
             this.altMenuItem.Click += new System.EventHandler(this.altMenuItem_Click);
             // 
             // winMenuItem
             // 
             this.winMenuItem.Name = "winMenuItem";
-            this.winMenuItem.Size = new System.Drawing.Size(129, 30);
+            this.winMenuItem.Size = new System.Drawing.Size(110, 22);
             this.winMenuItem.Click += new System.EventHandler(this.winMenuItem_Click);
             // 
             // shiftMenuItem
             // 
             this.shiftMenuItem.Name = "shiftMenuItem";
-            this.shiftMenuItem.Size = new System.Drawing.Size(129, 30);
+            this.shiftMenuItem.Size = new System.Drawing.Size(110, 22);
             this.shiftMenuItem.Click += new System.EventHandler(this.shiftMenuItem_Click);
             // 
             // ShortcutBox
             // 
             this.ContextMenuStrip = ctxMenu;
-            this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ShortcutBox_KeyDown);
-            this.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.ShortcutBox_KeyPress);
             this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.ShortcutBox_KeyUp);
+            this.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.ShortcutBox_KeyPress);
+            this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ShortcutBox_KeyDown);
             ctxMenu.ResumeLayout(false);
             this.ResumeLayout(false);
 

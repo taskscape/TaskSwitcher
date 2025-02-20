@@ -45,45 +45,50 @@ namespace ManagedWinapi
         /// The "non-modifier" key code of the currently selected shortcut, or
         /// <see cref="Keys.None"/> if no key is selected.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Keys KeyCode
         {
-            get => key;
+            get { return key; }
             set { key = value; RefreshText(); }
         }
 
         /// <summary>
         /// Whether the currently selected shortcut includes the Shift key.
         /// </summary>
+        [DefaultValue(false)]
         public bool Shift
         {
-            get => shift;
+            get { return shift; }
             set { shift = value; shiftMenuItem.Checked = value; RefreshText(); }
         }
 
         /// <summary>
         /// Whether the currently selected shortcut includes the Alt key.
         /// </summary>
+        [DefaultValue(false)]
         public bool Alt
         {
-            get => alt;
+            get { return alt; }
             set { alt = value; altMenuItem.Checked = value; RefreshText(); }
         }
 
         /// <summary>
         /// Whether the currently selected shortcut includes the Control key.
         /// </summary>
+        [DefaultValue(false)]
         public bool Ctrl
         {
-            get => ctrl;
+            get { return ctrl; }
             set { ctrl = value; ctrlMenuItem.Checked = value; RefreshText(); }
         }
 
         /// <summary>
         /// Whether the currently selected shortcut includes the Windows key.
         /// </summary>
+        [DefaultValue(false)]
         public bool WindowsKey
         {
-            get => windowsKey;
+            get { return windowsKey; }
             set { windowsKey = value; winMenuItem.Checked = value; RefreshText(); }
         }
 
@@ -91,9 +96,13 @@ namespace ManagedWinapi
         /// The textual representation of the currently selected key.
         /// This property cannot be set.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public override string Text
         {
-            get => base.Text;
+            get
+            {
+                return base.Text;
+            }
             set
             {
                 // ignore
@@ -225,11 +234,6 @@ namespace ManagedWinapi
         private void tabMenuItem_Click(object sender, EventArgs e)
         {
             if (!ReadOnly) { key = Keys.Tab; RefreshText(); }
-        }
-
-        private void ctxMenu_Opening(object sender, CancelEventArgs e)
-        {
-
         }
     }
 }

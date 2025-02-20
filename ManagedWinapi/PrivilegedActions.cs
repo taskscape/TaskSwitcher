@@ -14,6 +14,7 @@ namespace ManagedWinapi
         /// <summary>
         /// Shutdown the system.
         /// </summary>
+        [CLSCompliant(false)]
         public static void ShutDown(ShutdownAction action)
         {
             ShutDown(action, ShutdownForceMode.NoForce);
@@ -22,6 +23,7 @@ namespace ManagedWinapi
         /// <summary>
         /// Shutdown the system.
         /// </summary>
+        [CLSCompliant(false)]
         public static void ShutDown(ShutdownAction action, ShutdownForceMode forceMode)
         {
             ApiHelper.FailIfZero(ExitWindowsEx((uint)action | (uint)forceMode, SHTDN_REASON_FLAG_PLANNED));
@@ -34,7 +36,7 @@ namespace ManagedWinapi
         {
             get
             {
-                SYSTEMTIME st = new();
+                SYSTEMTIME st = new SYSTEMTIME();
                 ApiHelper.FailIfZero(GetLocalTime(ref st));
                 return st.ToDateTime();
             }
@@ -55,7 +57,7 @@ namespace ManagedWinapi
         {
             get
             {
-                SYSTEMTIME st = new();
+                SYSTEMTIME st = new SYSTEMTIME();
                 ApiHelper.FailIfZero(GetSystemTime(ref st));
                 return st.ToDateTime();
             }
@@ -70,6 +72,7 @@ namespace ManagedWinapi
         /// <summary>
         /// Actions that can be performed at shutdown.
         /// </summary>
+        [CLSCompliant(false)]
         public enum ShutdownAction : uint
         {
             /// <summary>
@@ -103,6 +106,7 @@ namespace ManagedWinapi
         /// Whether shutdown should be forced if an application cancels it
         /// or is hung.
         /// </summary>
+        [CLSCompliant(false)]
         public enum ShutdownForceMode : uint
         {
             /// <summary>

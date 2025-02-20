@@ -1,4 +1,25 @@
+/*
+ * ManagedWinapi - A collection of .NET components that wrap PInvoke calls to 
+ * access native API by managed code. http://mwinapi.sourceforge.net/
+ * Copyright (C) 2006 Michael Schierl
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; see the file COPYING. if not, visit
+ * http://www.gnu.org/licenses/lgpl.html or write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
 using System;
+using System.Collections.Generic;
+using System.Text;
 using System.ComponentModel;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
@@ -27,6 +48,7 @@ namespace ManagedWinapi
         private Keys _keyCode;
         private bool _ctrl, _alt, _shift, _windows;
         private readonly IntPtr hWnd;
+        private readonly EventDispatchingNativeWindow nativeWindow;
 
         /// <summary>
         /// Initializes a new instance of this class with the specified container.
@@ -42,12 +64,13 @@ namespace ManagedWinapi
         /// </summary>
         public Hotkey() 
         {
-            EventDispatchingNativeWindow.Instance.EventHandler += nw_EventHandler;
+            nativeWindow = EventDispatchingNativeWindow.Instance;
+            nativeWindow.EventHandler += nw_EventHandler;
             lock(myStaticLock) 
             {
                 hotkeyIndex = ++hotkeyCounter;
             }
-            hWnd = EventDispatchingNativeWindow.Instance.Handle;
+            hWnd = nativeWindow.Handle;
         }
 
         /// <summary>
@@ -55,9 +78,9 @@ namespace ManagedWinapi
         /// <c>HotkeyPressed</c> event instead of being handled by the active 
         /// application.
         /// </summary>
+        [DefaultValue(false)]
         public bool Enabled
         {
-            get => isEnabled;
             set
             {
                 isEnabled = value;
@@ -68,9 +91,13 @@ namespace ManagedWinapi
         /// <summary>
         /// The key code of the hotkey.
         /// </summary>
+        [DefaultValue(Keys.None)]
         public Keys KeyCode
         {
-            get => _keyCode;
+            get
+            {
+                return _keyCode;
+            }
 
             set
             {
@@ -82,47 +109,60 @@ namespace ManagedWinapi
         /// <summary>
         /// Whether the shortcut includes the Control modifier.
         /// </summary>
-        public bool Ctrl {
-            get => _ctrl;
-            set {_ctrl = value; updateHotkey(true);}
+        [DefaultValue(false)]
+        public bool Ctrl
+        {
+            get { return _ctrl; }
+            set
+            {
+                _ctrl = value;
+                updateHotkey(true);
+            }
         }
 
         /// <summary>
         /// Whether this shortcut includes the Alt modifier.
         /// </summary>
+        [DefaultValue(false)]
         public bool Alt {
-            get => _alt;
+            get { return _alt; }
             set {_alt = value; updateHotkey(true);}
-        }     
-   
+        }
+
         /// <summary>
         /// Whether this shortcut includes the shift modifier.
         /// </summary>
+        [DefaultValue(false)]
         public bool Shift {
-            get => _shift;
+            get { return _shift; }
             set {_shift = value; updateHotkey(true);}
         }
-        
+
         /// <summary>
         /// Whether this shortcut includes the Windows key modifier. The windows key
         /// is an addition by Microsoft to the keyboard layout. It is located between
         /// Control and Alt and depicts a Windows flag.
         /// </summary>
-        public bool WindowsKey {
-            get => _windows;
-            set {_windows = value; updateHotkey(true);}
+        [DefaultValue(false)]
+        public bool WindowsKey
+        {
+            get { return _windows; }
+            set
+            {
+                _windows = value;
+                updateHotkey(true);
+            }
         }
 
         void nw_EventHandler(ref Message m, ref bool handled)
         {
             if (handled) return;
-            if (m.Msg != WM_HOTKEY || m.WParam.ToInt32() != hotkeyIndex)
+            if (m.Msg == WM_HOTKEY && m.WParam.ToInt32() == hotkeyIndex)
             {
-                return;
+                if (HotkeyPressed != null)
+                    HotkeyPressed(this, EventArgs.Empty);
+                handled = true;
             }
-
-            HotkeyPressed?.Invoke(this, EventArgs.Empty);
-            handled = true;
         }
 
         /// <summary>
@@ -133,7 +173,7 @@ namespace ManagedWinapi
         {
             isDisposed = true;
             updateHotkey(false);
-            EventDispatchingNativeWindow.Instance.EventHandler -= nw_EventHandler;
+            nativeWindow.EventHandler -= nw_EventHandler;
             base.Dispose(disposing);
         }
 
@@ -146,18 +186,15 @@ namespace ManagedWinapi
                 UnregisterHotKey(hWnd, hotkeyIndex);
                 isRegistered = false;
             }
-
-            if (isRegistered || !shouldBeRegistered)
+            if (!isRegistered && shouldBeRegistered)
             {
-                return;
+                // register hotkey
+                bool success = RegisterHotKey(hWnd, hotkeyIndex, 
+                    (_shift ? MOD_SHIFT : 0) + (_ctrl ? MOD_CONTROL : 0) +
+                    (_alt ? MOD_ALT : 0) + (_windows ? MOD_WIN : 0), (int)_keyCode);
+                if (!success) throw new HotkeyAlreadyInUseException();
+                isRegistered = true;
             }
-
-            // register hotkey
-            bool success = RegisterHotKey(hWnd, hotkeyIndex, 
-                (_shift ? MOD_SHIFT : 0) + (_ctrl ? MOD_CONTROL : 0) +
-                (_alt ? MOD_ALT : 0) + (_windows ? MOD_WIN : 0), (int)_keyCode);
-            if (!success) throw new HotkeyAlreadyInUseException();
-            isRegistered = true;
         }
 
         #region PInvoke Declarations
@@ -167,7 +204,8 @@ namespace ManagedWinapi
         [DllImport("user32.dll", SetLastError=true)]
         private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
-        private static readonly int MOD_ALT = 0x0001, MOD_CONTROL = 0x0002, MOD_SHIFT = 0x0004, MOD_WIN = 0x0008;
+        private static readonly int MOD_ALT = 0x0001,
+            MOD_CONTROL = 0x0002, MOD_SHIFT = 0x0004, MOD_WIN = 0x0008;
 
         private static readonly int WM_HOTKEY = 0x0312;
 

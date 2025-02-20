@@ -1,5 +1,28 @@
+/*
+ * ManagedWinapi - A collection of .NET components that wrap PInvoke calls to 
+ * access native API by managed code. http://mwinapi.sourceforge.net/
+ * Copyright (C) 2006, 2007 Michael Schierl
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; see the file COPYING. if not, visit
+ * http://www.gnu.org/licenses/lgpl.html or write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
 using System;
+using System.Collections.Generic;
+using System.Text;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
+using ManagedWinapi.Windows;
 
 namespace ManagedWinapi.Hooks
 {
@@ -23,15 +46,20 @@ namespace ManagedWinapi.Hooks
             : base(type, true, false)
         {
             lmh = new LocalMessageHook();
-            lmh.MessageOccurred += lmh_Callback;
+            lmh.MSGOccurred += new LocalMessageHook.MSGCallback(lmh_Callback);
         }
 
-        private void lmh_Callback(System.Windows.Forms.Message msg)
+        private void lmh_Callback(MSG msg)
         {
-            if (msg.Msg != WM_CANCELJOURNAL) return;
-            hooked = false;
-            lmh.Unhook();
-            JournalCancelled?.Invoke(this, EventArgs.Empty);
+            if (msg.message == WM_CANCELJOURNAL)
+            {
+                hooked = false;
+                lmh.Unhook();
+                if (JournalCancelled != null)
+                {
+                    JournalCancelled(this, new EventArgs());
+                }
+            }
         }
 
         /// <summary>
@@ -89,16 +117,15 @@ namespace ManagedWinapi.Hooks
         /// <summary>
         /// Creates a new journal message.
         /// </summary>
+        [CLSCompliant(false)]
         public JournalMessage(IntPtr hWnd, uint message, uint paramL, uint paramH, uint time)
         {
-            msg = new JournalHook.EVENTMSG
-            {
-                hWnd = hWnd,
-                message = message,
-                paramL = paramL,
-                paramH = paramH,
-                time = 0
-            };
+            msg = new JournalHook.EVENTMSG();
+            msg.hWnd = hWnd;
+            msg.message = message;
+            msg.paramL = paramL;
+            msg.paramH = paramH;
+            msg.time = 0;
         }
 
         /// <summary>
@@ -109,16 +136,19 @@ namespace ManagedWinapi.Hooks
         /// <summary>
         /// The message.
         /// </summary>
+        [CLSCompliant(false)]
         public uint Message { get { return msg.message; } }
 
         /// <summary>
         /// The first parameter of the message.
         /// </summary>
+        [CLSCompliant(false)]
         public uint ParamL { get { return msg.paramL; } }
 
         /// <summary>
         /// The second parameter of the message.
         /// </summary>
+        [CLSCompliant(false)]
         public uint ParamH { get { return msg.paramH; } }
 
         /// <summary>
@@ -126,7 +156,7 @@ namespace ManagedWinapi.Hooks
         /// </summary>
         public int Time
         {
-            get => msg.time;
+            get { return msg.time; }
             set { msg.time = value; }
         }
 
@@ -155,7 +185,10 @@ namespace ManagedWinapi.Hooks
         /// <summary>
         /// The recorded message.
         /// </summary>
-        public JournalMessage RecordedMessage => msg;
+        public JournalMessage RecordedMessage
+        {
+            get { return msg; }
+        }
     }
 
     /// <summary>
@@ -301,8 +334,7 @@ namespace ManagedWinapi.Hooks
                 Marshal.StructureToPtr(em, lParam, false);
                 return 0;
             }
-
-            if (code == HC_SKIP)
+            else if (code == HC_SKIP)
             {
                 nextEvent = null;
                 nextEventTime = 0;
@@ -310,16 +342,12 @@ namespace ManagedWinapi.Hooks
             else if (code == HC_SYSMODALON)
             {
                 if (SystemModalDialogAppeared != null)
-                {
                     SystemModalDialogAppeared(this, new EventArgs());
-                }
             }
             else if (code == HC_SYSMODALOFF)
             {
                 if (SystemModalDialogDisappeared != null)
-                {
                     SystemModalDialogDisappeared(this, new EventArgs());
-                }
             }
             return 0;
         }
@@ -349,11 +377,9 @@ namespace ManagedWinapi.Hooks
             this.interval = interval;
             this.count = count;
             hook = new JournalPlaybackHook();
-            hook.GetNextJournalMessage += hook_GetNextJournalMessage;
+            hook.GetNextJournalMessage += new JournalPlaybackHook.JournalQuery(hook_GetNextJournalMessage);
             if (force)
-            {
-                hook.JournalCancelled += hook_JournalCancelled;
-            }
+                hook.JournalCancelled += new EventHandler(hook_JournalCancelled);
             hook.StartHook();
         }
 
@@ -396,7 +422,7 @@ namespace ManagedWinapi.Hooks
         /// by pressing Control+Alt+Delete</param>
         public static void LockInputFor(int millis, bool force)
         {
-            InputLocker inputLocker = new InputLocker(millis, 1, force);
+            new InputLocker(millis, 1, force);
         }
     }
 }

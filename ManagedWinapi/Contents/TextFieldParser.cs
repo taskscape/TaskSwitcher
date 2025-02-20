@@ -1,3 +1,23 @@
+/*
+ * ManagedWinapi - A collection of .NET components that wrap PInvoke calls to 
+ * access native API by managed code. http://mwinapi.sourceforge.net/
+ * Copyright (C) 2006 Michael Schierl
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; see the file COPYING. if not, visit
+ * http://www.gnu.org/licenses/lgpl.html or write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+using System;
 using System.Collections.Generic;
 
 namespace ManagedWinapi.Windows.Contents
@@ -33,9 +53,10 @@ namespace ManagedWinapi.Windows.Contents
                 string s = strict ? " <TextBox>" : "";
                 if (text.IndexOf("\n") != -1)
                     return "<MultiLine>" + s;
-                if (password)
+                else if (password)
                     return text + " <Password>" + s;
-                return text + s;
+                else
+                    return text + s;
             }
         }
 
@@ -45,11 +66,9 @@ namespace ManagedWinapi.Windows.Contents
             get
             {
                 if (password)
-                {
                     return text + " <Password>";
-                }
-
-                return text;
+                else
+                    return text;
             }
         }
 
@@ -76,21 +95,22 @@ namespace ManagedWinapi.Windows.Contents
             this.strict = strict;
         }
 
-        internal override bool CanParseContent(SystemWindow systemWindow)
+        internal override bool CanParseContent(SystemWindow sw)
         {
-            if (!strict) 
+            if (strict)
             {
-                return systemWindow.Title != "";
+                uint EM_GETLINECOUNT = 0xBA;
+                return sw.SendGetMessage(EM_GETLINECOUNT) != 0;
             }
-
-            uint EM_GETLINECOUNT = 0xBA;
-            return systemWindow.SendGetMessage(EM_GETLINECOUNT) != 0;
-
+            else
+            {
+                return sw.Text != "";
+            }
         }
 
-        protected override WindowContent ParseContent(SystemWindow systemWindow)
+        internal override WindowContent ParseContent(SystemWindow sw)
         {
-            return new TextContent(systemWindow.Title, systemWindow.PasswordCharacter != 0, strict);
+            return new TextContent(sw.Text, sw.PasswordCharacter != 0, strict);
         }
     }
 }

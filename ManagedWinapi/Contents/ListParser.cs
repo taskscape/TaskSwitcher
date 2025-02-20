@@ -1,3 +1,22 @@
+/*
+ * ManagedWinapi - A collection of .NET components that wrap PInvoke calls to 
+ * access native API by managed code. http://mwinapi.sourceforge.net/
+ * Copyright (C) 2006 Michael Schierl
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; see the file COPYING. if not, visit
+ * http://www.gnu.org/licenses/lgpl.html or write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -136,7 +155,13 @@ namespace ManagedWinapi.Windows.Contents
             return SystemListBox.FromSystemWindow(sw) != null;
         }
 
-        protected override WindowContent ParseContent(SystemWindow sw)
+        internal override WindowContent ParsePreviewContent(SystemWindow sw)
+        {
+            SystemListBox slb = SystemListBox.FromSystemWindow(sw);
+            return new ListContent("ListBox", slb.SelectedIndex, slb.SelectedItem, new string[0]);
+        }
+
+        internal override WindowContent ParseContent(SystemWindow sw)
         {
             SystemListBox slb = SystemListBox.FromSystemWindow(sw);
             int c = slb.Count;
@@ -156,7 +181,12 @@ namespace ManagedWinapi.Windows.Contents
             return SystemComboBox.FromSystemWindow(sw) != null;
         }
 
-        protected override WindowContent ParseContent(SystemWindow sw)
+        internal override WindowContent ParsePreviewContent(SystemWindow sw)
+        {
+            return new ListContent("ComboBox", -1, sw.Text, new string[0]);
+        }
+
+        internal override WindowContent ParseContent(SystemWindow sw)
         {
             SystemComboBox slb = SystemComboBox.FromSystemWindow(sw);
             int c = slb.Count;
@@ -165,7 +195,7 @@ namespace ManagedWinapi.Windows.Contents
             {
                 values[i] = slb[i];
             }
-            return new ListContent("ComboBox", -1, sw.Title, values);
+            return new ListContent("ComboBox", -1, sw.Text, values);
         }
     }
 
@@ -176,14 +206,83 @@ namespace ManagedWinapi.Windows.Contents
         {
             uint LVM_GETITEMCOUNT = (0x1000 + 4);
             int cnt = sw.SendGetMessage(LVM_GETITEMCOUNT);
-            return cnt != 0;
+            return cnt != 0 || sw.ClassName == "SysListView32";
         }
 
-        protected override WindowContent ParseContent(SystemWindow sw)
+        internal override WindowContent ParsePreviewContent(SystemWindow sw)
         {
             uint LVM_GETITEMCOUNT = (0x1000 + 4);
             int cnt = sw.SendGetMessage(LVM_GETITEMCOUNT);
-            if (cnt == 0) throw new Exception();
+            if (cnt == 0 && sw.ClassName != "SysListView32") throw new Exception();
+            SystemAccessibleObject o = SystemAccessibleObject.FromWindow(sw, AccessibleObjectID.OBJID_CLIENT);
+            if (o.RoleIndex == 33)
+            {
+                return new ListContent("DetailsListView", -1, null, new string[0]);
+            }
+            else
+            {
+                return new ListContent("EmptyListView", -1, null, new string[0]);
+            }
+        }
+
+        internal override WindowContent ParseContent(SystemWindow sw)
+        {
+            uint LVM_GETITEMCOUNT = (0x1000 + 4);
+            int cnt = sw.SendGetMessage(LVM_GETITEMCOUNT);
+            if (cnt == 0 && sw.ClassName != "SysListView32") throw new Exception();
+            try
+            {
+                SystemListView slv = SystemListView.FromSystemWindow(sw);
+                // are there column headers?
+                string[] hdr = null;
+                SystemListViewColumn[] columns = slv.Columns;
+                if (columns.Length > 0)
+                {
+                    hdr = new string[columns.Length];
+                    for (int i = 0; i < hdr.Length; i++)
+                    {
+                        hdr[i] = columns[i].Title;
+                    }
+                }
+                int itemCount = slv.Count;
+                List<string> values = new List<string>();
+                for (int i = 0; i < itemCount; i++)
+                {
+                    SystemListViewItem item = slv[i];
+                    string name = item.Title;
+                    if (hdr != null)
+                    {
+                        for (int j = 1; j < hdr.Length; j++)
+                        {
+                            SystemListViewItem subitem = slv[i, j];
+                            name += "\t" + subitem.Title;
+                        }
+                    }
+                    values.Add(name);
+                }
+                if (hdr != null)
+                {
+                    string lines = "", headers = "";
+                    foreach (string h in hdr)
+                    {
+                        if (lines.Length > 0) lines += "\t";
+                        if (headers.Length > 0) headers += "\t";
+                        headers += h;
+                        lines += ListContent.Repeat('~', h.Length);
+                    }
+                    values.Insert(0, lines);
+                    values.Insert(0, headers);
+                    return new ListContent("DetailsListView", -1, null, values.ToArray());
+                }
+                else
+                {
+                    return new ListContent("ListView", -1, null, values.ToArray());
+                }
+            }
+            catch
+            {
+                // fallback to slower accessible object method
+            }
             SystemAccessibleObject o = SystemAccessibleObject.FromWindow(sw, AccessibleObjectID.OBJID_CLIENT);
             if (o.RoleIndex == 33)
             {
@@ -311,17 +410,28 @@ namespace ManagedWinapi.Windows.Contents
         internal override bool CanParseContent(SystemWindow sw)
         {
             int cnt = sw.SendGetMessage(TVM_GETCOUNT, 0);
-            return cnt != 0;
+            return cnt != 0 || sw.ClassName == "SysTreeView32";
         }
 
-        protected override WindowContent ParseContent(SystemWindow sw)
+        internal override WindowContent ParsePreviewContent(SystemWindow sw)
+        {
+            SystemAccessibleObject sao = SystemAccessibleObject.FromWindow(sw, AccessibleObjectID.OBJID_CLIENT);
+            if (sao.RoleIndex == 35)
+            {
+                return new ListContent("TreeView", -1, null, new string[0]);
+            }
+            return new ListContent("EmptyTreeView", -1, null, new string[0]);
+        }
+
+        internal override WindowContent ParseContent(SystemWindow sw)
         {
             SystemAccessibleObject sao = SystemAccessibleObject.FromWindow(sw, AccessibleObjectID.OBJID_CLIENT);
             if (sao.RoleIndex == 35)
             {
                 List<string> treeNodes = new List<string>();
                 int selected = -1;
-                foreach(SystemAccessibleObject n in sao.Children) {
+                foreach (SystemAccessibleObject n in sao.Children)
+                {
                     if (n.RoleIndex == 36)
                     {
                         if ((n.State & 0x2) != 0)

@@ -6,11 +6,6 @@ namespace TaskSwitcher.Core.Matchers
     {
         public bool Matched { get; set; }
         public int Score { get; set; }
-        public IList<StringPart> StringParts { get; set; }
-
-        public MatchResult()
-        {
-            StringParts = new List<StringPart>();
-        }
+        public IList<StringPart> StringParts { get; } = new List<StringPart>();
     }
 }

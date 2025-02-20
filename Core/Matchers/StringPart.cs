@@ -1,18 +1,8 @@
 ﻿namespace TaskSwitcher.Core.Matchers
 {
-    public class StringPart
+    public class StringPart(string value, bool isMatch = false)
     {
-        public string Value { get; set; }
-        public bool IsMatch { get; set; }
-
-        public StringPart()
-        {
-        }
-
-        public StringPart(string value, bool isMatch = false)
-        {
-            Value = value;
-            IsMatch = isMatch;
-        }
+        public string Value { get; } = value;
+        public bool IsMatch { get; } = isMatch;
     }
 }

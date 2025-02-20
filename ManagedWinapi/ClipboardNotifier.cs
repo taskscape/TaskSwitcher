@@ -1,7 +1,30 @@
+/*
+ * ManagedWinapi - A collection of .NET components that wrap PInvoke calls to 
+ * access native API by managed code. http://mwinapi.sourceforge.net/
+ * Copyright (C) 2006 Michael Schierl
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; see the file COPYING. if not, visit
+ * http://www.gnu.org/licenses/lgpl.html or write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text;
 using ManagedWinapi.Windows;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace ManagedWinapi
 {
@@ -33,7 +56,6 @@ namespace ManagedWinapi
             container.Add(this);
         }
 
-        /// <inheritdoc />
         /// <summary>
         /// Creates a new clipboard notifier.
         /// </summary>
@@ -50,7 +72,7 @@ namespace ManagedWinapi
                 ednw = EventDispatchingNativeWindow.Instance;
                 instantiated = true;
             }
-            ednw.EventHandler += ClipboardEventHandler;
+            ednw.EventHandler += clipboardEventHandler;
             hWnd = ednw.Handle;
             nextHWnd = SetClipboardViewer(hWnd);
         }
@@ -61,17 +83,18 @@ namespace ManagedWinapi
         protected override void Dispose(bool disposing)
         {
             ChangeClipboardChain(hWnd, nextHWnd);
-            ednw.EventHandler -= ClipboardEventHandler;
+            ednw.EventHandler -= clipboardEventHandler;
             base.Dispose(disposing);
         }
 
-        private void ClipboardEventHandler(ref System.Windows.Forms.Message m, ref bool handled)
+        void clipboardEventHandler(ref System.Windows.Forms.Message m, ref bool handled)
         {
             if (handled) return;
             if (m.Msg == WM_DRAWCLIPBOARD)
             {
                 // notify me
-                ClipboardChanged?.Invoke(this, EventArgs.Empty);
+                if (ClipboardChanged != null)
+                    ClipboardChanged(this, EventArgs.Empty);
                 // pass on message
                 SendMessage(nextHWnd, m.Msg, m.WParam, m.LParam);
                 handled = true;

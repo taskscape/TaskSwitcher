@@ -1,7 +1,26 @@
+/*
+ * ManagedWinapi - A collection of .NET components that wrap PInvoke calls to 
+ * access native API by managed code. http://mwinapi.sourceforge.net/
+ * Copyright (C) 2006 Michael Schierl
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; see the file COPYING. if not, visit
+ * http://www.gnu.org/licenses/lgpl.html or write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
+using ManagedWinapi.Windows;
 
 namespace ManagedWinapi.Audio.Mixer
 {
@@ -33,7 +52,17 @@ namespace ManagedWinapi.Audio.Mixer
         /// <summary>
         /// All controls of this line.
         /// </summary>
-        private MixerControl[] Controls => controls ??= MixerControl.GetControls(mixer, this, ControlCount);
+        public MixerControl[] Controls
+        {
+            get
+            {
+                if (controls == null)
+                {
+                    controls = MixerControl.GetControls(mixer, this, ControlCount);
+                }
+                return controls;
+            }
+        }
 
         /// <summary>
         /// The volume control of this line, if it has one.
@@ -75,27 +104,27 @@ namespace ManagedWinapi.Audio.Mixer
         /// <summary>
         /// Gets the ID of this line.
         /// </summary>
-        public int Id => line.dwLineID;
+        public int Id { get { return line.dwLineID; } }
 
         /// <summary>
         /// Gets the number of channels of this line.
         /// </summary>
-        public int ChannelCount => line.cChannels;
+        public int ChannelCount { get { return line.cChannels; } }
 
         /// <summary>
         /// Gets the number of controls of this line.
         /// </summary>
-        public int ControlCount => line.cControls;
+        public int ControlCount { get { return line.cControls; } }
 
         /// <summary>
         /// Gets the short name of this line;
         /// </summary>
-        public string ShortName => line.szShortName;
+        public string ShortName { get { return line.szShortName; } }
 
         /// <summary>
         /// Gets the full name of this line.
         /// </summary>
-        public string Name => line.szName;
+        public string Name { get { return line.szName; } }
 
         /// <summary>
         /// Gets the component type of this line;
@@ -128,7 +157,13 @@ namespace ManagedWinapi.Audio.Mixer
         private static readonly IList<MixerLine> EMPTY_LIST =
             new List<MixerLine>().AsReadOnly();
 
-        internal virtual IList<MixerLine> ChildLines => EMPTY_LIST;
+        internal virtual IList<MixerLine> ChildLines
+        {
+            get
+            {
+                return EMPTY_LIST;
+            }
+        }
 
         internal MixerControl findControl(int ctrlId)
         {
@@ -146,7 +181,8 @@ namespace ManagedWinapi.Audio.Mixer
 
         internal void OnChanged()
         {
-            Changed?.Invoke(this, EventArgs.Empty);
+            if (Changed != null)
+                Changed(this, EventArgs.Empty);
         }
 
         #region PInvoke Declarations
@@ -244,13 +280,15 @@ namespace ManagedWinapi.Audio.Mixer
         {
             get
             {
-                if (childLines != null)
+                if (childLines == null)
                 {
-                    return childLines;
+                    List<MixerLine> cl = new List<MixerLine>();
+                    foreach (MixerLine ml in SourceLines)
+                    {
+                        cl.Add(ml);
+                    }
+                    childLines = cl.AsReadOnly();
                 }
-
-                List<MixerLine> cl = SourceLines.Cast<MixerLine>().ToList();
-                childLines = cl.AsReadOnly();
                 return childLines;
             }
         }
@@ -268,7 +306,7 @@ namespace ManagedWinapi.Audio.Mixer
 
         internal static SourceLine GetLine(Mixer mixer, int destIndex, int srcIndex)
         {
-            MIXERLINE m = new();
+            MIXERLINE m = new MIXERLINE();
             m.cbStruct = Marshal.SizeOf(m);
             m.dwDestination = destIndex;
             m.dwSource = srcIndex;
