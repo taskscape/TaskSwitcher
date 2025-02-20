@@ -20,7 +20,6 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Windows.Forms;
 using System.Runtime.InteropServices;
 using System.Drawing;
 
@@ -40,34 +39,22 @@ namespace ManagedWinapi.Windows
             return new SystemListView(sw);
         }
 
-        readonly SystemWindow sw;
+        readonly SystemWindow systemWindow;
 
-        private SystemListView(SystemWindow sw)
+        private SystemListView(SystemWindow systemWindow)
         {
-            this.sw = sw;
+            this.systemWindow = systemWindow;
         }
 
         /// <summary>
         /// The number of items (icons) in this list view.
         /// </summary>
-        public int Count
-        {
-            get
-            {
-                return sw.SendGetMessage(LVM_GETITEMCOUNT);
-            }
-        }
+        public int Count => systemWindow.SendGetMessage(LVM_GETITEMCOUNT);
 
         /// <summary>
         /// An item of this list view.
         /// </summary>
-        public SystemListViewItem this[int index]
-        {
-            get
-            {
-                return this[index, 0];
-            }
-        }
+        public SystemListViewItem this[int index] => this[index, 0];
 
         /// <summary>
         /// A subitem (a column value) of an item of this list view.
@@ -82,16 +69,16 @@ namespace ManagedWinapi.Windows
                 lvi.iSubItem = subIndex;
                 lvi.stateMask = 0xffffffff;
                 lvi.mask = LVIF_IMAGE | LVIF_STATE | LVIF_TEXT;
-                ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(sw.Process, 301);
+                ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(systemWindow.Process, 301);
                 lvi.pszText = tc.Location;
-                ProcessMemoryChunk lc = ProcessMemoryChunk.AllocStruct(sw.Process, lvi);
-                ApiHelper.FailIfZero(SystemWindow.SendMessage(new HandleRef(sw, sw.HWnd), SystemListView.LVM_GETITEM, IntPtr.Zero, lc.Location));
+                ProcessMemoryChunk lc = ProcessMemoryChunk.AllocStruct(systemWindow.Process, lvi);
+                ApiHelper.FailIfZero(SystemWindow.SendMessage(new HandleRef(systemWindow, systemWindow.HWnd), SystemListView.LVM_GETITEM, IntPtr.Zero, lc.Location));
                 lvi = (LVITEM)lc.ReadToStructure(0, typeof(LVITEM));
                 lc.Dispose();
                 if (lvi.pszText != tc.Location)
                 {
                     tc.Dispose();
-                    tc = new ProcessMemoryChunk(sw.Process, lvi.pszText, lvi.cchTextMax);
+                    tc = new ProcessMemoryChunk(systemWindow.Process, lvi.pszText, lvi.cchTextMax);
                 }
                 byte[] tmp = tc.Read();
                 string title = Encoding.Default.GetString(tmp);
@@ -99,7 +86,7 @@ namespace ManagedWinapi.Windows
                 int image = lvi.iImage;
                 uint state = lvi.state;
                 tc.Dispose();
-                return new SystemListViewItem(sw, index, title, state, image);
+                return new SystemListViewItem(systemWindow, index, title, state, image);
             }
         }
 
@@ -114,12 +101,12 @@ namespace ManagedWinapi.Windows
                 LVCOLUMN lvc = new LVCOLUMN();
                 lvc.cchTextMax = 300;
                 lvc.mask = LVCF_FMT | LVCF_SUBITEM | LVCF_TEXT | LVCF_WIDTH;
-                ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(sw.Process, 301);
+                ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(systemWindow.Process, 301);
                 lvc.pszText = tc.Location;
-                ProcessMemoryChunk lc = ProcessMemoryChunk.AllocStruct(sw.Process, lvc);
+                ProcessMemoryChunk lc = ProcessMemoryChunk.AllocStruct(systemWindow.Process, lvc);
                 for (int i = 0; ; i++)
                 {
-                    IntPtr ok = SystemWindow.SendMessage(new HandleRef(sw, sw.HWnd), LVM_GETCOLUMN, new IntPtr(i), lc.Location);
+                    IntPtr ok = SystemWindow.SendMessage(new HandleRef(systemWindow, systemWindow.HWnd), LVM_GETCOLUMN, new IntPtr(i), lc.Location);
                     if (ok == IntPtr.Zero) break;
                     lvc = (LVCOLUMN)lc.ReadToStructure(0, typeof(LVCOLUMN));
                     byte[] tmp = tc.Read();
@@ -199,17 +186,17 @@ namespace ManagedWinapi.Windows
         /// <summary>
         /// The title of this item
         /// </summary>
-        public string Title { get { return title; } }
+        public string Title => title;
 
         /// <summary>
         /// The index of this item's image in the image list of this list view.
         /// </summary>
-        public int Image { get { return image; } }
+        public int Image => image;
 
         /// <summary>
         /// State bits of this item.
         /// </summary>
-        public uint State { get { return state; } }
+        public uint State => state;
 
         /// <summary>
         /// Position of the upper left corner of this item.
@@ -224,10 +211,7 @@ namespace ManagedWinapi.Windows
                 pt = (POINT)c.ReadToStructure(0, typeof(POINT));
                 return new Point(pt.X, pt.Y);
             }
-            set
-            {
-                SystemWindow.SendMessage(new HandleRef(sw, sw.HWnd), SystemListView.LVM_SETITEMPOSITION, new IntPtr(index), new IntPtr(value.X + (value.Y << 16)));
-            }
+            set => SystemWindow.SendMessage(new HandleRef(sw, sw.HWnd), SystemListView.LVM_SETITEMPOSITION, new IntPtr(index), new IntPtr(value.X + (value.Y << 16)));
         }
 
         /// <summary>
@@ -237,11 +221,11 @@ namespace ManagedWinapi.Windows
         {
             get
             {
-                RECT r = new RECT();
-                ProcessMemoryChunk c = ProcessMemoryChunk.AllocStruct(sw.Process, r);
+                RECT rectangle = new();
+                ProcessMemoryChunk c = ProcessMemoryChunk.AllocStruct(sw.Process, rectangle);
                 SystemWindow.SendMessage(new HandleRef(sw, sw.HWnd), SystemListView.LVM_GETITEMRECT, new IntPtr(index), c.Location);
-                r = (RECT)c.ReadToStructure(0, typeof(RECT));
-                return r;
+                rectangle = (RECT)c.ReadToStructure(0, typeof(RECT));
+                return rectangle;
             }
         }
     }
@@ -264,35 +248,23 @@ namespace ManagedWinapi.Windows
         /// <summary>
         /// The format (like left justified) of this column.
         /// </summary>
-        public int Format
-        {
-            get { return format; }
-        }
+        public int Format => format;
 
         /// <summary>
         /// The width of this column.
         /// </summary>
-        public int Width
-        {
-            get { return width; }
-        }
+        public int Width => width;
 
         /// <summary>
         /// The subindex of the subitem displayed in this column. Note
         /// that the second column does not necessarily display the second
         /// subitem - especially when the columns can be reordered by the user.
         /// </summary>
-        public int SubIndex
-        {
-            get { return subIndex; }
-        }
+        public int SubIndex => subIndex;
 
         /// <summary>
         /// The title of this column.
         /// </summary>
-        public string Title
-        {
-            get { return title; }
-        }
+        public string Title => title;
     }
 }

@@ -98,22 +98,6 @@ namespace ManagedWinapi
             return ((ulong) high << 32) + low;
         }
 
-        /// <summary>
-        /// Get the cluster size for the filesystem that contains the given file.
-        /// </summary>
-        public static uint GetClusterSize(string filename)
-        {
-            uint dummy;
-            string drive = Path.GetPathRoot(filename);
-            if (!GetDiskFreeSpace(drive, out var sectors, out var bytes,
-                out dummy, out dummy))
-            {
-                throw new Win32Exception(Marshal.GetLastWin32Error());
-            }
-
-            return sectors * bytes;
-        }
-
         #region PInvoke Declarations
 
         private const uint SHGFI_ICON = 0x100;

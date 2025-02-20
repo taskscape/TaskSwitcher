@@ -34,10 +34,10 @@ namespace ManagedWinapi.Windows
         /// <summary>
         /// Get a SystemTreeView reference from a SystemWindow (which is a tree view)
         /// </summary>
-        public static SystemTreeView FromSystemWindow(SystemWindow sw)
+        public static SystemTreeView FromSystemWindow(SystemWindow systemWindow)
         {
-            if (sw.SendGetMessage(TVM_GETCOUNT) == 0) return null;
-            return new SystemTreeView(sw);
+            if (systemWindow.SendGetMessage(TVM_GETCOUNT) == 0) return null;
+            return new SystemTreeView(systemWindow);
         }
 
         internal readonly SystemWindow sw;
@@ -50,24 +50,12 @@ namespace ManagedWinapi.Windows
         /// <summary>
         /// The number of items (icons) in this tree view.
         /// </summary>
-        public int Count
-        {
-            get
-            {
-                return sw.SendGetMessage(TVM_GETCOUNT);
-            }
-        }
+        public int Count => sw.SendGetMessage(TVM_GETCOUNT);
 
         /// <summary>
         /// The root items of this tree view.
         /// </summary>
-        public SystemTreeViewItem[] Roots
-        {
-            get
-            {
-                return FindSubItems(sw, IntPtr.Zero);
-            }
-        }
+        public SystemTreeViewItem[] Roots => FindSubItems(sw, IntPtr.Zero);
 
         internal static SystemTreeViewItem[] FindSubItems(SystemWindow sw, IntPtr hParent)
         {

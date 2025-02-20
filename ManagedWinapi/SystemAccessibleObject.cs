@@ -43,19 +43,19 @@ namespace ManagedWinapi.Accessibility
         /// The IAccessible instance of this object (if <see cref="ChildID"/> is zero)
         /// or its parent.
         /// </summary>
-        public IAccessible IAccessible { get { return iacc; } }
+        public IAccessible IAccessible => iacc;
 
         /// <summary>
         /// The underlying child ID
         /// </summary>
-        public int ChildID { get { return childID; } }
+        public int ChildID => childID;
 
         /// <summary>
         /// Create an accessible object from an IAccessible instance and a child ID.
         /// </summary>
         public SystemAccessibleObject(IAccessible iacc, int childID)
         {
-            if (iacc == null) throw new ArgumentNullException();
+            ArgumentNullException.ThrowIfNull(iacc);
             //if (childID < 0) throw new ArgumentException();
             if (childID != 0)
             {
@@ -101,13 +101,7 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// Gets an accessibility object for the mouse cursor.
         /// </summary>
-        public static SystemAccessibleObject MouseCursor
-        {
-            get
-            {
-                return FromWindow(null, AccessibleObjectID.OBJID_CURSOR);
-            }
-        }
+        public static SystemAccessibleObject MouseCursor => FromWindow(null, AccessibleObjectID.OBJID_CURSOR);
 
         /// <summary>
         /// Gets an accessibility object for the input caret, or
@@ -167,36 +161,18 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// The description of this accessible object.
         /// </summary>
-        public string Description
-        {
-            get
-            {
-                return iacc.get_accDescription(childID);
-            }
-        }
+        public string Description => iacc.get_accDescription(childID);
 
         /// <summary>
         /// The name of this accessible object.
         /// </summary>
-        public string Name
-        {
-            get
-            {
-                return iacc.get_accName(childID);
-            }
-        }
+        public string Name => iacc.get_accName(childID);
 
         /// <summary>
         /// The role of this accessible object. This can either be an int
         /// (for a predefined role) or a string.
         /// </summary>
-        public object Role
-        {
-            get
-            {
-                return iacc.get_accRole(childID);
-            }
-        }
+        public object Role => iacc.get_accRole(childID);
 
         /// <summary>
         /// The role of this accessible object, as an integer. If this role
@@ -260,46 +236,22 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// The value of this accessible object.
         /// </summary>
-        public string Value
-        {
-            get
-            {
-                return iacc.get_accValue(childID);
-            }
-        }
+        public string Value => iacc.get_accValue(childID);
 
         /// <summary>
         /// The state of this accessible object.
         /// </summary>
-        public int State
-        {
-            get
-            {
-                return (int)iacc.get_accState(childID);
-            }
-        }
+        public int State => (int)iacc.get_accState(childID);
 
         /// <summary>
         /// A string representation of the state of this accessible object.
         /// </summary>
-        public string StateString
-        {
-            get
-            {
-                return StateToString(State);
-            }
-        }
+        public string StateString => StateToString(State);
 
         /// <summary>
         /// Whether this accessibile object is visible.
         /// </summary>
-        public bool Visible
-        {
-            get
-            {
-                return (State & 0x8000) == 0;
-            }
-        }
+        public bool Visible => (State & 0x8000) == 0;
 
         /// <summary>
         /// The parent of this accessible object, or <b>null</b> if none exists.
@@ -363,7 +315,7 @@ namespace ManagedWinapi.Accessibility
         {
             get
             {
-                if (childID != 0) return new SystemAccessibleObject[0];
+                if (childID != 0) return [];
                 object sel;
                 try
                 {
@@ -371,18 +323,19 @@ namespace ManagedWinapi.Accessibility
                 }
                 catch (NotImplementedException)
                 {
-                    return new SystemAccessibleObject[0];
+                    return [];
                 }
                 catch (COMException)
                 {
-                    return new SystemAccessibleObject[0];
+                    return [];
                 }
-                if (sel == null) return new SystemAccessibleObject[0];
+                
+                if (sel == null) return [];
                 if (sel is IEnumVARIANT)
                 {
                     IEnumVARIANT e = (IEnumVARIANT)sel;
                     e.Reset();
-                    List<SystemAccessibleObject> retval = new List<SystemAccessibleObject>();
+                    List<SystemAccessibleObject> retval = [];
                     object[] tmp = new object[1];
                     while (e.Next(1, tmp, IntPtr.Zero) == 0)
                     {
@@ -395,9 +348,9 @@ namespace ManagedWinapi.Accessibility
                 {
                     if (sel is int && (int)sel < 0)
                     {
-                        return new SystemAccessibleObject[0];
+                        return [];
                     }
-                    return new SystemAccessibleObject[] { ObjectToSAO(sel) };
+                    return [ObjectToSAO(sel)];
                 }
             }
         }
@@ -435,17 +388,17 @@ namespace ManagedWinapi.Accessibility
             get
             {
                 // ID-referenced objects cannot have children
-                if (childID != 0) return new SystemAccessibleObject[0];
+                if (childID != 0) return [];
 
                 int cs = iacc.accChildCount, csReal;
                 object[] children = new object[cs * 2];
 
                 uint result = AccessibleChildren(iacc, 0, cs * 2, children, out csReal);
                 if (result != 0 && result != 1)
-                    return new SystemAccessibleObject[0];
+                    return [];
                 if (csReal == 1 && children[0] is int && (int)children[0] < 0)
-                    return new SystemAccessibleObject[0];
-                List<SystemAccessibleObject> values = new List<SystemAccessibleObject>();
+                    return [];
+                List<SystemAccessibleObject> values = [];
                 for (int i = 0; i < children.Length; i++)
                 {
                     if (children[i] != null)

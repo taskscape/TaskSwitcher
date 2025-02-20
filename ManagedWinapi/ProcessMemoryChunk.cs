@@ -63,17 +63,17 @@ namespace ManagedWinapi
         /// <summary>
         /// The process this chunk refers to.
         /// </summary>
-        public Process Process { get { return process; } }
+        public Process Process => process;
 
         /// <summary>
         /// The location in memory (of the other process) this chunk refers to.
         /// </summary>
-        public IntPtr Location { get { return location; } }
+        public IntPtr Location => location;
 
         /// <summary>
         /// The size of the chunk.
         /// </summary>
-        public int Size { get { return size; } }
+        public int Size => size;
 
         /// <summary>
         /// Allocate a chunk in another process.
@@ -117,12 +117,12 @@ namespace ManagedWinapi
         /// </summary>
         public void WriteStructure(int offset, object structure)
         {
-            int size = Marshal.SizeOf(structure);
-            IntPtr localPtr = Marshal.AllocHGlobal(size);
+            int structureSize = Marshal.SizeOf(structure);
+            IntPtr localPtr = Marshal.AllocHGlobal(structureSize);
             try
             {
                 Marshal.StructureToPtr(structure, localPtr, false);
-                Write(offset, localPtr, size);
+                Write(offset, localPtr, structureSize);
             }
             finally
             {
@@ -189,11 +189,11 @@ namespace ManagedWinapi
         /// </summary>
         public object ReadToStructure(int offset, Type structureType)
         {
-            int size = Marshal.SizeOf(structureType);
-            IntPtr localPtr = Marshal.AllocHGlobal(size);
+            int structureSize = Marshal.SizeOf(structureType);
+            IntPtr localPtr = Marshal.AllocHGlobal(structureSize);
             try
             {
-                ReadToPtr(offset, size, localPtr);
+                ReadToPtr(offset, structureSize, localPtr);
                 return Marshal.PtrToStructure(localPtr, structureType);
             }
             finally

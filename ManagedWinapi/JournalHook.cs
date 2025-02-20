@@ -23,20 +23,15 @@ namespace ManagedWinapi.Hooks
             : base(type, true, false)
         {
             lmh = new LocalMessageHook();
-            lmh.MessageOccurred += new LocalMessageHook.MessageCallback(lmh_Callback);
+            lmh.MessageOccurred += lmh_Callback;
         }
 
         private void lmh_Callback(System.Windows.Forms.Message msg)
         {
-            if (msg.Msg == WM_CANCELJOURNAL)
-            {
-                hooked = false;
-                lmh.Unhook();
-                if (JournalCancelled != null)
-                {
-                    JournalCancelled(this, new EventArgs());
-                }
-            }
+            if (msg.Msg != WM_CANCELJOURNAL) return;
+            hooked = false;
+            lmh.Unhook();
+            JournalCancelled?.Invoke(this, EventArgs.Empty);
         }
 
         /// <summary>
@@ -96,12 +91,14 @@ namespace ManagedWinapi.Hooks
         /// </summary>
         public JournalMessage(IntPtr hWnd, uint message, uint paramL, uint paramH, uint time)
         {
-            msg = new JournalHook.EVENTMSG();
-            msg.hWnd = hWnd;
-            msg.message = message;
-            msg.paramL = paramL;
-            msg.paramH = paramH;
-            msg.time = 0;
+            msg = new JournalHook.EVENTMSG
+            {
+                hWnd = hWnd,
+                message = message,
+                paramL = paramL,
+                paramH = paramH,
+                time = 0
+            };
         }
 
         /// <summary>
@@ -158,10 +155,7 @@ namespace ManagedWinapi.Hooks
         /// <summary>
         /// The recorded message.
         /// </summary>
-        public JournalMessage RecordedMessage
-        {
-            get { return msg; }
-        }
+        public JournalMessage RecordedMessage => msg;
     }
 
     /// <summary>
@@ -355,10 +349,10 @@ namespace ManagedWinapi.Hooks
             this.interval = interval;
             this.count = count;
             hook = new JournalPlaybackHook();
-            hook.GetNextJournalMessage += new JournalPlaybackHook.JournalQuery(hook_GetNextJournalMessage);
+            hook.GetNextJournalMessage += hook_GetNextJournalMessage;
             if (force)
             {
-                hook.JournalCancelled += new EventHandler(hook_JournalCancelled);
+                hook.JournalCancelled += hook_JournalCancelled;
             }
             hook.StartHook();
         }

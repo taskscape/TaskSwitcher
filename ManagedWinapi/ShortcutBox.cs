@@ -47,7 +47,7 @@ namespace ManagedWinapi
         /// </summary>
         public Keys KeyCode
         {
-            get { return key; }
+            get => key;
             set { key = value; RefreshText(); }
         }
 
@@ -56,7 +56,7 @@ namespace ManagedWinapi
         /// </summary>
         public bool Shift
         {
-            get { return shift; }
+            get => shift;
             set { shift = value; shiftMenuItem.Checked = value; RefreshText(); }
         }
 
@@ -65,7 +65,7 @@ namespace ManagedWinapi
         /// </summary>
         public bool Alt
         {
-            get { return alt; }
+            get => alt;
             set { alt = value; altMenuItem.Checked = value; RefreshText(); }
         }
 
@@ -74,7 +74,7 @@ namespace ManagedWinapi
         /// </summary>
         public bool Ctrl
         {
-            get { return ctrl; }
+            get => ctrl;
             set { ctrl = value; ctrlMenuItem.Checked = value; RefreshText(); }
         }
 
@@ -83,7 +83,7 @@ namespace ManagedWinapi
         /// </summary>
         public bool WindowsKey
         {
-            get { return windowsKey; }
+            get => windowsKey;
             set { windowsKey = value; winMenuItem.Checked = value; RefreshText(); }
         }
 
@@ -93,10 +93,7 @@ namespace ManagedWinapi
         /// </summary>
         public override string Text
         {
-            get
-            {
-                return base.Text;
-            }
+            get => base.Text;
             set
             {
                 // ignore

@@ -13,7 +13,7 @@ namespace ManagedWinapi.Hooks
     public class Hook : Component
     {
         private HookType type;
-        internal bool hooked = false;
+        internal bool hooked;
         private IntPtr hHook;
         private bool wrapCallback, global;
         private IntPtr wrappedDelegate;
@@ -156,14 +156,11 @@ namespace ManagedWinapi.Hooks
         /// </summary>
         protected virtual int InternalCallback(int code, IntPtr wParam, IntPtr lParam)
         {
-            if (code >= 0 && Callback != null)
-            {
-                bool callNext = true;
-                int retval = Callback(code, wParam, lParam, ref callNext);
-                if (!callNext) return retval;
-            }
-
-            return CallNextHookEx(hHook, code, wParam, lParam);
+            if (code < 0 || Callback == null) 
+                return CallNextHookEx(hHook, code, wParam, lParam);
+            bool callNext = true;
+            int retval = Callback(code, wParam, lParam, ref callNext);
+            return !callNext ? retval : CallNextHookEx(hHook, code, wParam, lParam);
         }
 
         #region PInvoke Declarations

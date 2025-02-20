@@ -34,7 +34,7 @@ namespace ManagedWinapi
         {
             get
             {
-                SYSTEMTIME st = new SYSTEMTIME();
+                SYSTEMTIME st = new();
                 ApiHelper.FailIfZero(GetLocalTime(ref st));
                 return st.ToDateTime();
             }
@@ -55,7 +55,7 @@ namespace ManagedWinapi
         {
             get
             {
-                SYSTEMTIME st = new SYSTEMTIME();
+                SYSTEMTIME st = new();
                 ApiHelper.FailIfZero(GetSystemTime(ref st));
                 return st.ToDateTime();
             }

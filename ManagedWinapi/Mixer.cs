@@ -25,7 +25,7 @@ namespace ManagedWinapi.Audio.Mixer
         /// <returns>A reference to this mixer.</returns>
         public static Mixer OpenMixer(uint index)
         {
-            if (index < 0 || index > MixerCount)
+            if (index > MixerCount)
                 throw new ArgumentException();
             IntPtr hMixer = IntPtr.Zero;
             EventDispatchingNativeWindow ednw = EventDispatchingNativeWindow.Instance;
@@ -97,8 +97,8 @@ namespace ManagedWinapi.Audio.Mixer
         /// </summary>
         public bool CreateEvents
         {
-            get { return createEvents; }
-            set { createEvents = value; }
+            get => createEvents;
+            set => createEvents = value;
         }
 
         internal IntPtr Handle { get { return hMixer; } }
@@ -120,17 +120,14 @@ namespace ManagedWinapi.Audio.Mixer
         {
             get
             {
-                if (destLines == null)
+                if (destLines != null) return destLines;
+                int dlc = DestinationLineCount;
+                List<DestinationLine> l = new List<DestinationLine>(dlc);
+                for (int i = 0; i < dlc; i++)
                 {
-                    int dlc = DestinationLineCount;
-                    List<DestinationLine> l = new List<DestinationLine>(dlc);
-                    for (int i = 0; i < dlc; i++)
-                    {
-                        l.Add(DestinationLine.GetLine(this, i));
-                    }
-                    destLines = l.AsReadOnly();
-
+                    l.Add(DestinationLine.GetLine(this, i));
                 }
+                destLines = l.AsReadOnly();
                 return destLines;
             }
         }

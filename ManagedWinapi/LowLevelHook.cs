@@ -11,7 +11,7 @@ namespace ManagedWinapi.Hooks
     /// </summary>
     public class LowLevelKeyboardHook : Hook
     {
-        char currentDeadChar = '\0';
+        private char _currentDeadChar = '\0';
 
         /// <summary>
         /// Called when a key has been intercepted.
@@ -73,66 +73,59 @@ namespace ManagedWinapi.Hooks
                 KBDLLHOOKSTRUCT llh = (KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
                 bool handled = false;
                 int msg = (int)wParam;
-                if (KeyIntercepted != null)
-                {
-                    KeyIntercepted(msg, llh.vkCode, llh.scanCode, llh.flags, llh.time, llh.dwExtraInfo, ref handled);
-                }
-                if (MessageIntercepted != null)
-                {
-                    MessageIntercepted(new LowLevelKeyboardMessage((int)wParam, llh.vkCode, llh.scanCode, llh.flags, llh.time, llh.dwExtraInfo), ref handled);
-                }
+                KeyIntercepted?.Invoke(msg, llh.vkCode, llh.scanCode, llh.flags, llh.time, llh.dwExtraInfo, ref handled);
+                MessageIntercepted?.Invoke(new LowLevelKeyboardMessage((int)wParam, llh.vkCode, llh.scanCode, llh.flags, llh.time, llh.dwExtraInfo), ref handled);
                 if (handled)
                 {
                     callNext = false;
                     return 1;
                 }
-                if (CharIntercepted != null && (msg == 256 || msg == 260))
+
+                if (CharIntercepted == null || (msg != 256 && msg != 260)) return 0;
+                // Note that dead keys are somehow tricky, since ToUnicode changes their state
+                // in the keyboard driver. So, if we catch a dead key and call ToUnicode on it,
+                // we will have to stop the hook; otherwise the deadkey appears twice on the screen.
+                // On the other hand, we try to avoid calling ToUnicode on the key pressed after
+                // the dead key (the one which is modified by the deadkey), because that would
+                // drop the deadkey altogether. Resynthesizing the deadkey event is hard since
+                // some deadkeys are unshifted but used on shifted characters or vice versa.
+                // This solution will not lose any dead keys; its only drawback is that dead
+                // keys are not properly translated. Better implementations are welcome.
+                if (llh.vkCode == (int)Keys.ShiftKey ||
+                    llh.vkCode == (int)Keys.LShiftKey ||
+                    llh.vkCode == (int)Keys.RShiftKey ||
+                    llh.vkCode == (int)Keys.LControlKey ||
+                    llh.vkCode == (int)Keys.RControlKey ||
+                    llh.vkCode == (int)Keys.ControlKey ||
+                    llh.vkCode == (int)Keys.Menu ||
+                    llh.vkCode == (int)Keys.LMenu ||
+                    llh.vkCode == (int)Keys.RMenu)
                 {
-                    // Note that dead keys are somehow tricky, since ToUnicode changes their state
-                    // in the keyboard driver. So, if we catch a dead key and call ToUnicode on it,
-                    // we will have to stop the hook; otherwise the deadkey appears twice on the screen.
-                    // On the other hand, we try to avoid calling ToUnicode on the key pressed after
-                    // the dead key (the one which is modified by the deadkey), because that would
-                    // drop the deadkey altogether. Resynthesizing the deadkey event is hard since
-                    // some deadkeys are unshifted but used on shifted characters or vice versa.
-                    // This solution will not lose any dead keys; its only drawback is that dead
-                    // keys are not properly translated. Better implementations are welcome.
-                    if (llh.vkCode == (int)Keys.ShiftKey ||
-                        llh.vkCode == (int)Keys.LShiftKey ||
-                        llh.vkCode == (int)Keys.RShiftKey ||
-                        llh.vkCode == (int)Keys.LControlKey ||
-                        llh.vkCode == (int)Keys.RControlKey ||
-                        llh.vkCode == (int)Keys.ControlKey ||
-                        llh.vkCode == (int)Keys.Menu ||
-                        llh.vkCode == (int)Keys.LMenu ||
-                        llh.vkCode == (int)Keys.RMenu)
+                    // ignore shift keys, they do not get modified by dead keys.
+                }
+                else if (_currentDeadChar != '\0')
+                {
+                    CharIntercepted(msg, "" + (llh.vkCode == (int)Keys.Space ? _currentDeadChar : '\x01'), true,
+                        llh.vkCode, llh.scanCode, llh.flags, llh.time, llh.dwExtraInfo);
+                    _currentDeadChar = '\0';
+                }
+                else
+                {
+                    short dummy = new KeyboardKey(Keys.Capital).State; // will refresh CAPS LOCK state for current thread
+                    byte[] kbdState = new byte[256];
+                    ApiHelper.FailIfZero(GetKeyboardState(kbdState));
+                    StringBuilder buff = new StringBuilder(64);
+                    int length = ToUnicode((int)llh.vkCode, llh.scanCode, kbdState, buff, 64, 0);
+                    if (length == -1)
                     {
-                        // ignore shift keys, they do not get modified by dead keys.
+                        _currentDeadChar = buff[0];
+                        callNext = false;
+                        return 1;
                     }
-                    else if (currentDeadChar != '\0')
-                    {
-                        CharIntercepted(msg, "" + (llh.vkCode == (int)Keys.Space ? currentDeadChar : '\x01'), true,
-                            llh.vkCode, llh.scanCode, llh.flags, llh.time, llh.dwExtraInfo);
-                        currentDeadChar = '\0';
-                    }
-                    else
-                    {
-                        short dummy = new KeyboardKey(Keys.Capital).State; // will refresh CAPS LOCK state for current thread
-                        byte[] kbdState = new byte[256];
-                        ApiHelper.FailIfZero(GetKeyboardState(kbdState));
-                        StringBuilder buff = new StringBuilder(64);
-                        int length = ToUnicode((int)llh.vkCode, llh.scanCode, kbdState, buff, 64, 0);
-                        if (length == -1)
-                        {
-                            currentDeadChar = buff[0];
-                            callNext = false;
-                            return 1;
-                        }
-                        if (buff.Length != length)
-                            buff.Remove(length, buff.Length - length);
-                        CharIntercepted(msg, buff.ToString(), false,
-                            llh.vkCode, llh.scanCode, llh.flags, llh.time, llh.dwExtraInfo);
-                    }
+                    if (buff.Length != length)
+                        buff.Remove(length, buff.Length - length);
+                    CharIntercepted(msg, buff.ToString(), false,
+                        llh.vkCode, llh.scanCode, llh.flags, llh.time, llh.dwExtraInfo);
                 }
             }
             return 0;
@@ -290,10 +283,7 @@ namespace ManagedWinapi.Hooks
         /// <summary>
         /// Extra information. Its contents depend on the message.
         /// </summary>
-        public IntPtr ExtraInfo
-        {
-            get { return extraInfo; }
-        }
+        public IntPtr ExtraInfo => extraInfo;
 
         /// <summary>
         /// Replays this event as if the user did it again.
@@ -322,18 +312,12 @@ namespace ManagedWinapi.Hooks
         /// <summary>
         /// The mouse position where this message occurred.
         /// </summary>
-        public POINT Point
-        {
-            get { return pt; }
-        }
+        public POINT Point => pt;
 
         /// <summary>
         /// Additional mouse data, depending on the type of event.
         /// </summary>
-        public int MouseData
-        {
-            get { return mouseData; }
-        }
+        public int MouseData => mouseData;
 
         /// <summary>
         /// Mouse event flags needed to replay this message.

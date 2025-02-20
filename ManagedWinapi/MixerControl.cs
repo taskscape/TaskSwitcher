@@ -81,19 +81,13 @@ namespace ManagedWinapi.Audio.Mixer
         /// <summary>
         /// The number of channels.
         /// </summary>
-        public int ChannelCount
-        {
-            get { return ml.ChannelCount; }
-        }
+        public int ChannelCount => ml.ChannelCount;
 
         /// <summary>
         /// The number of multiple values. For a three band equalizer,
         /// this is 3. Will be always one if IsMultiple is false.
         /// </summary>
-        public int MultipleValuesCount
-        {
-            get { return IsMultiple ? ctrl.cMultipleItems : 1; }
-        }
+        public int MultipleValuesCount => IsMultiple ? ctrl.cMultipleItems : 1;
 
         /// <summary>
         /// The number of raw values that have to be get or set. This
@@ -117,18 +111,12 @@ namespace ManagedWinapi.Audio.Mixer
         /// <summary>
         /// The line this control belongs to.
         /// </summary>
-        public MixerLine Line
-        {
-            get { return ml; }
-        }
+        public MixerLine Line => ml;
 
         /// <summary>
         /// The mixer this control belongs to.
         /// </summary>
-        public Mixer Mixer
-        {
-            get { return mx; }
-        }
+        public Mixer Mixer => mx;
 
         internal static MixerControl[] GetControls(Mixer mx, MixerLine line, int controlCount)
         {
@@ -155,7 +143,7 @@ namespace ManagedWinapi.Audio.Mixer
             for (int i = 0; i < controlCount; i++)
             {
                 mc[i] = (MIXERCONTROL) Marshal.PtrToStructure(new IntPtr(mlc.pamxctrl.ToInt64() + mxsize * i),
-                    typeof(MIXERCONTROL));
+                    typeof(MIXERCONTROL))!;
             }
 
             Marshal.FreeCoTaskMem(mlc.pamxctrl);
@@ -326,7 +314,7 @@ namespace ManagedWinapi.Audio.Mixer
                 {
                     mcdu = (MIXERCONTROLDETAILS_UNSIGNED) Marshal.PtrToStructure(
                         new IntPtr(mcd.paDetails.ToInt64() + Marshal.SizeOf(mcdu) * i),
-                        typeof(MIXERCONTROLDETAILS_UNSIGNED));
+                        typeof(MIXERCONTROLDETAILS_UNSIGNED))!;
                     result[i] = mcdu.dwValue;
                 }
 
@@ -396,7 +384,7 @@ namespace ManagedWinapi.Audio.Mixer
                 {
                     mcdb = (MIXERCONTROLDETAILS_BOOLEAN) Marshal.PtrToStructure(
                         new IntPtr(mcd.paDetails.ToInt64() + Marshal.SizeOf(mcdb) * i),
-                        typeof(MIXERCONTROLDETAILS_BOOLEAN));
+                        typeof(MIXERCONTROLDETAILS_BOOLEAN))!;
                     result[i] = mcdb.fValue != 0;
                 }
 

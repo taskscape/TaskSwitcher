@@ -17,8 +17,7 @@
  * http://www.gnu.org/licenses/lgpl.html or write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
-using System;
-using System.Collections.Generic;
+
 using System.Text;
 
 namespace ManagedWinapi
@@ -79,7 +78,7 @@ namespace ManagedWinapi
             {
                 lookupTable[i] = EscapableState.ALWAYS;
             }
-            foreach (char c in "%()+^`{}~´")
+            foreach (char c in "%()+^`{}~ï¿½")
             {
                 lookupTable[c] = EscapableState.BRACED_ONLY;
             }
@@ -115,7 +114,7 @@ namespace ManagedWinapi
         /// <returns>The escaped string.</returns>
         public string escape(string literal, bool preferBraced)
         {
-            StringBuilder sb = new StringBuilder(literal.Length);
+            StringBuilder stringBuilder = new(literal.Length);
             foreach (char c in literal)
             {
                 switch (getEscapableState(c))
@@ -124,24 +123,24 @@ namespace ManagedWinapi
                         // ignore
                         break;
                     case EscapableState.BRACED_ONLY:
-                        sb.Append("{").Append(c).Append("}");
+                        stringBuilder.Append("{").Append(c).Append("}");
                         break;
                     case EscapableState.UNBRACED_ONLY:
-                        sb.Append(c);
+                        stringBuilder.Append(c);
                         break;
                     case EscapableState.ALWAYS:
                         if (preferBraced)
                         {
-                            sb.Append("{").Append(c).Append("}");
+                            stringBuilder.Append("{").Append(c).Append("}");
                         }
                         else
                         {
-                            sb.Append(c);
+                            stringBuilder.Append(c);
                         }
                         break;
                 }
             }
-            return sb.ToString();
+            return stringBuilder.ToString();
         }
     }
 }

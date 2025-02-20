@@ -83,7 +83,7 @@ namespace ManagedWinapi
         {
             get
             {
-                StringBuilder stringBuilder = new StringBuilder(512);
+                StringBuilder stringBuilder = new(512);
                 int scanCode = MapVirtualKey((int)key, 0);
                 if (extended)
                 {
