@@ -1346,11 +1346,11 @@ namespace ManagedWinapi.Windows
     public class WindowDeviceContext : IDisposable
     {
         IntPtr hDC;
-        SystemWindow sw;
+        SystemWindow systemWindow;
 
-        internal WindowDeviceContext(SystemWindow sw, IntPtr hDC)
+        internal WindowDeviceContext(SystemWindow systemWindow, IntPtr hDC)
         {
-            this.sw = sw;
+            this.systemWindow = systemWindow;
             this.hDC = hDC;
         }
 
@@ -1373,7 +1373,7 @@ namespace ManagedWinapi.Windows
         public void Dispose()
         {
             if (hDC == IntPtr.Zero) return;
-            ReleaseDC(sw.HWnd, hDC);
+            ReleaseDC(systemWindow.HWnd, hDC);
             hDC = IntPtr.Zero;
         }
 
