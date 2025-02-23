@@ -29,7 +29,17 @@ The TaskSwitcher solution is designed to facilitate efficient switching between 
 - Contributions are welcome. Please fork the repository, make your changes, and submit a pull request.
 
 ## License
-- Specify the license under which this software is released, if applicable.
+This software is available under dual licensing options:
+
+Open Source License: GNU Affero General Public License (AGPL) You can use, modify, and distribute the software for free under the terms of the GNU Affero General Public License (AGPL), which is included in the LICENSE file of this repository. This option is ideal for developers who wish to use the software in other open source projects or for personal use.
+
+Commercial License: If you want to use this software in a commercial application or require additional features and support not available under the open source license, you must obtain a commercial license. The commercial license allows for private modifications and grants you access to premium features and support services.
+
+Obtaining a Commercial License
+To obtain a commercial license or to inquire about pricing and terms, please contact us at taskscape.com.
+
+Why Dual Licensing?
+Dual licensing allows us to support the open source community while also providing a commercial offering that meets the needs of businesses requiring advanced features and dedicated support. This model helps fund the continued development and maintenance of the software.
 
 ## Contact
 - For more information or to report issues, please contact the repository maintainer or submit an issue in the project's issue tracker.
