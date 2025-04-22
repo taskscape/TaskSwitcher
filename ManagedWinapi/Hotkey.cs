@@ -55,6 +55,12 @@ namespace ManagedWinapi
         /// <c>HotkeyPressed</c> event instead of being handled by the active 
         /// application.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        /// <summary>
+        /// Enables the hotkey. When the hotkey is enabled, pressing it causes a
+        /// <c>HotkeyPressed</c> event instead of being handled by the active 
+        /// application.
+        /// </summary>
         public bool Enabled
         {
             get => isEnabled;
@@ -65,6 +71,10 @@ namespace ManagedWinapi
             }
         }
 
+        /// <summary>
+        /// The key code of the hotkey.
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         /// <summary>
         /// The key code of the hotkey.
         /// </summary>
@@ -82,6 +92,10 @@ namespace ManagedWinapi
         /// <summary>
         /// Whether the shortcut includes the Control modifier.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        /// <summary>
+        /// Whether the shortcut includes the Control modifier.
+        /// </summary>
         public bool Ctrl {
             get => _ctrl;
             set {_ctrl = value; updateHotkey(true);}
@@ -90,11 +104,19 @@ namespace ManagedWinapi
         /// <summary>
         /// Whether this shortcut includes the Alt modifier.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        /// <summary>
+        /// Whether this shortcut includes the Alt modifier.
+        /// </summary>
         public bool Alt {
             get => _alt;
             set {_alt = value; updateHotkey(true);}
-        }     
-   
+        }
+
+        /// <summary>
+        /// Whether this shortcut includes the shift modifier.
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         /// <summary>
         /// Whether this shortcut includes the shift modifier.
         /// </summary>
@@ -102,7 +124,13 @@ namespace ManagedWinapi
             get => _shift;
             set {_shift = value; updateHotkey(true);}
         }
-        
+
+        /// <summary>
+        /// Whether this shortcut includes the Windows key modifier. The windows key
+        /// is an addition by Microsoft to the keyboard layout. It is located between
+        /// Control and Alt and depicts a Windows flag.
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         /// <summary>
         /// Whether this shortcut includes the Windows key modifier. The windows key
         /// is an addition by Microsoft to the keyboard layout. It is located between

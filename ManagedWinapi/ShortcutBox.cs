@@ -45,12 +45,21 @@ namespace ManagedWinapi
         /// The "non-modifier" key code of the currently selected shortcut, or
         /// <see cref="Keys.None"/> if no key is selected.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        /// <summary>
+        /// The "non-modifier" key code of the currently selected shortcut, or
+        /// <see cref="Keys.None"/> if no key is selected.
+        /// </summary>
         public Keys KeyCode
         {
             get => key;
             set { key = value; RefreshText(); }
         }
 
+        /// <summary>
+        /// Whether the currently selected shortcut includes the Shift key.
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         /// <summary>
         /// Whether the currently selected shortcut includes the Shift key.
         /// </summary>
@@ -63,12 +72,20 @@ namespace ManagedWinapi
         /// <summary>
         /// Whether the currently selected shortcut includes the Alt key.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        /// <summary>
+        /// Whether the currently selected shortcut includes the Alt key.
+        /// </summary>
         public bool Alt
         {
             get => alt;
             set { alt = value; altMenuItem.Checked = value; RefreshText(); }
         }
 
+        /// <summary>
+        /// Whether the currently selected shortcut includes the Control key.
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         /// <summary>
         /// Whether the currently selected shortcut includes the Control key.
         /// </summary>
@@ -81,12 +98,21 @@ namespace ManagedWinapi
         /// <summary>
         /// Whether the currently selected shortcut includes the Windows key.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        /// <summary>
+        /// Whether the currently selected shortcut includes the Windows key.
+        /// </summary>
         public bool WindowsKey
         {
             get => windowsKey;
             set { windowsKey = value; winMenuItem.Checked = value; RefreshText(); }
         }
 
+        /// <summary>
+        /// The textual representation of the currently selected key.
+        /// This property cannot be set.
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         /// <summary>
         /// The textual representation of the currently selected key.
         /// This property cannot be set.
