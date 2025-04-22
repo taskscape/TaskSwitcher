@@ -1,21 +1,56 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using TaskSwitcher.Core.Matchers;
 
 namespace TaskSwitcher.Core
 {
     public class WindowFilterer
     {
+        // Threshold for window count above which parallel processing will be used
+        private const int ParallelProcessingThreshold = 30;
+
         public IEnumerable<FilterResult<T>> Filter<T>(WindowFilterContext<T> context, string query)
             where T : IWindowText
         {
             // Parse the query into filter texts
             (string filterText, string processFilterText) = ParseQuery(query, context.ForegroundWindowProcessTitle);
 
-            // Use a single unified filtering approach
-            return context.Windows
+            // Use standard LINQ for small window lists
+            var windowsList = context.Windows.ToList();
+            if (windowsList.Count < ParallelProcessingThreshold)
+            {
+                return FilterSequential(windowsList, filterText, processFilterText);
+            }
+            
+            // Use parallel processing for larger window lists
+            return FilterParallel(windowsList, filterText, processFilterText);
+        }
+        
+        private IEnumerable<FilterResult<T>> FilterSequential<T>(List<T> windows, string filterText, string processFilterText)
+            where T : IWindowText
+        {
+            return windows
                 .Select(w => CreateFilterResult(w, filterText, processFilterText))
                 .Where(r => ShouldIncludeWindow(r.ResultsTitle, r.ResultsProcessTitle, processFilterText))
+                .OrderByDescending(r => r.ResultsTitle.Sum(wt => wt.Score) + r.ResultsProcessTitle.Sum(pt => pt.Score))
+                .Select(r => new FilterResult<T>
+                {
+                    AppWindow = r.Window,
+                    WindowTitleMatchResults = r.ResultsTitle,
+                    ProcessTitleMatchResults = r.ResultsProcessTitle
+                });
+        }
+        
+        private IEnumerable<FilterResult<T>> FilterParallel<T>(List<T> windows, string filterText, string processFilterText)
+            where T : IWindowText
+        {
+            return windows
+                .AsParallel()
+                .Select(w => CreateFilterResult(w, filterText, processFilterText))
+                .Where(r => ShouldIncludeWindow(r.ResultsTitle, r.ResultsProcessTitle, processFilterText))
+                .AsSequential() // Return to sequential for ordering operations
                 .OrderByDescending(r => r.ResultsTitle.Sum(wt => wt.Score) + r.ResultsProcessTitle.Sum(pt => pt.Score))
                 .Select(r => new FilterResult<T>
                 {
@@ -30,15 +65,17 @@ namespace TaskSwitcher.Core
             string filterText = query;
             string processFilterText = null;
 
-            string[] queryParts = query.Split(['.'], 2);
+            string[] queryParts = query.Split(new[] {'.'}, 2);
 
-            if (queryParts.Length != 2) return (filterText, processFilterText);
-            processFilterText = queryParts[0];
-            if (processFilterText.Length == 0)
+            if (queryParts.Length == 2)
             {
-                processFilterText = foregroundWindowProcessTitle;
+                processFilterText = queryParts[0];
+                if (processFilterText.Length == 0)
+                {
+                    processFilterText = foregroundWindowProcessTitle;
+                }
+                filterText = queryParts[1];
             }
-            filterText = queryParts[1];
 
             return (filterText, processFilterText);
         }
@@ -53,7 +90,7 @@ namespace TaskSwitcher.Core
             };
         }
 
-        private bool ShouldIncludeWindow(List<MatchResult> titleResults, List<MatchResult> processTitleResults, string processFilterText)
+        private static bool ShouldIncludeWindow(List<MatchResult> titleResults, List<MatchResult> processTitleResults, string processFilterText)
         {
             if (processFilterText == null)
             {
@@ -65,18 +102,18 @@ namespace TaskSwitcher.Core
 
         private static List<MatchResult> Score(string title, string filterText)
         {
-            StartsWithMatcher startsWithMatcher = new();
-            ContainsMatcher containsMatcher = new();
-            SignificantCharactersMatcher significantCharactersMatcher = new();
-            IndividualCharactersMatcher individualCharactersMatcher = new();
+            StartsWithMatcher startsWithMatcher = new StartsWithMatcher();
+            ContainsMatcher containsMatcher = new ContainsMatcher();
+            SignificantCharactersMatcher significantCharactersMatcher = new SignificantCharactersMatcher();
+            IndividualCharactersMatcher individualCharactersMatcher = new IndividualCharactersMatcher();
 
-            List<MatchResult> results =
-            [
+            List<MatchResult> results = new List<MatchResult>
+            {
                 startsWithMatcher.Evaluate(title, filterText),
                 significantCharactersMatcher.Evaluate(title, filterText),
                 containsMatcher.Evaluate(title, filterText),
                 individualCharactersMatcher.Evaluate(title, filterText)
-            ];
+            };
 
             return results;
         }
