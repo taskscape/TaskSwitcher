@@ -27,7 +27,7 @@ using MessageBox = System.Windows.MessageBox;
 
 namespace TaskSwitcher
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, IDisposable
     {
         private WindowCloser _windowCloser;
         private List<AppWindowViewModel> _unfilteredWindowList;
@@ -233,18 +233,21 @@ MenuItem menuItem)
         {
             try
             {
-                string versionAsString =
-                    await
-                        new WebClient().DownloadStringTaskAsync(
-                            "https://raw.github.com/kvakulo/TaskSwitcher/update/version.txt");
-                Version newVersion;
-                if (Version.TryParse(versionAsString, out newVersion))
+                using (WebClient client = new WebClient())
                 {
-                    return newVersion;
+                    string versionAsString = await client.DownloadStringTaskAsync(
+                        "https://raw.github.com/kvakulo/TaskSwitcher/update/version.txt");
+                    
+                    Version newVersion;
+                    if (Version.TryParse(versionAsString, out newVersion))
+                    {
+                        return newVersion;
+                    }
                 }
             }
             catch (WebException)
             {
+                // Log or handle the exception
             }
             return null;
         }
@@ -437,11 +440,70 @@ MenuItem menuItem)
         /// </summary>
         private void Quit()
         {
-            _notifyIcon.Dispose();
-            _notifyIcon = null;
-            _hotkey.Dispose();
+            Dispose();
             Application.Current.Shutdown();
         }
+        
+        #region IDisposable Implementation
+        
+        private bool _disposed = false;
+        
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+        
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+                return;
+            
+            if (disposing)
+            {
+                // Dispose managed resources
+                _notifyIcon?.Dispose();
+                _hotkey?.Dispose();
+                _altTabHook?.Dispose();
+                _windowCloser?.Dispose();
+                
+                // Dispose window view models
+                if (_unfilteredWindowList != null)
+                {
+                    foreach (var window in _unfilteredWindowList)
+                    {
+                        window.Dispose();
+                    }
+                }
+                
+                // Unregister event handlers
+                if (_hotkey != null)
+                    _hotkey.HotkeyPressed -= hotkey_HotkeyPressed;
+                
+                if (_altTabHook != null)
+                    _altTabHook.Pressed -= AltTabPressed;
+                
+                // Clean up references
+                _notifyIcon = null;
+                _hotkey = null;
+                _altTabHook = null;
+                _windowCloser = null;
+                _unfilteredWindowList = null;
+                _filteredWindowList = null;
+                _foregroundWindow = null;
+            }
+            
+            // Free unmanaged resources
+            
+            _disposed = true;
+        }
+        
+        ~MainWindow()
+        {
+            Dispose(false);
+        }
+        
+        #endregion
 
         #endregion
 
@@ -454,6 +516,12 @@ MenuItem menuItem)
         {
             e.Cancel = true;
             HideWindow();
+        }
+        
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+            Dispose();
         }
 
         private void hotkey_HotkeyPressed(object sender, EventArgs e)
@@ -652,6 +720,9 @@ MenuItem menuItem)
 
             _filteredWindowList.Remove(window);
             _unfilteredWindowList.Remove(window);
+            
+            // Properly dispose the removed window
+            window.Dispose();
         }
 
         private void ScrollListUp(object sender, ExecutedRoutedEventArgs e)

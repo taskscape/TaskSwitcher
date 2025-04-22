@@ -9,7 +9,7 @@ using TaskSwitcher.Core;
 
 namespace TaskSwitcher
 {
-    public class AppWindowViewModel : INotifyPropertyChanged, IWindowText
+    public class AppWindowViewModel : INotifyPropertyChanged, IWindowText, IDisposable
     {
         public AppWindowViewModel(AppWindow appWindow)
         {
@@ -104,6 +104,40 @@ namespace TaskSwitcher
             }
 
             return memberExpression.Member.Name;
+        }
+
+        #endregion
+        
+        #region IDisposable Implementation
+
+        private bool _disposed = false;
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+                return;
+
+            if (disposing)
+            {
+                // Dispose managed resources
+                PropertyChanged = null;
+                
+                // Clean up references that might contain circular dependencies
+                AppWindow = null;
+            }
+
+            _disposed = true;
+        }
+
+        ~AppWindowViewModel()
+        {
+            Dispose(false);
         }
 
         #endregion
