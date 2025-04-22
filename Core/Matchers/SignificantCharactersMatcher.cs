@@ -1,10 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
 namespace TaskSwitcher.Core.Matchers
 {
     public class SignificantCharactersMatcher : IMatcher
     {
+        // Cache for compiled regex patterns to avoid recompilation
+        private static readonly Dictionary<string, Regex> CompiledPatterns = new Dictionary<string, Regex>();
+
         public MatchResult Evaluate(string input, string pattern)
         {
             if (input == null || pattern == null)
@@ -12,9 +16,10 @@ namespace TaskSwitcher.Core.Matchers
                 return NonMatchResult(input);
             }
 
-            string regexPattern = BuildRegexPattern(pattern);
+            // Get or create the compiled regex pattern
+            Regex compiledRegex = GetCompiledRegex(pattern);
 
-            Match match = Regex.Match(input, regexPattern);
+            Match match = compiledRegex.Match(input);
 
             if (!match.Success)
             {
@@ -44,6 +49,28 @@ namespace TaskSwitcher.Core.Matchers
             return matchResult;
         }
 
+        private static Regex GetCompiledRegex(string pattern)
+        {
+            // Use pattern as the cache key
+            lock (CompiledPatterns)
+            {
+                if (CompiledPatterns.TryGetValue(pattern, out Regex cachedRegex))
+                {
+                    return cachedRegex;
+                }
+
+                string regexPattern = BuildRegexPattern(pattern);
+                
+                // Compile the regex for better performance
+                Regex compiledRegex = new Regex(regexPattern, RegexOptions.Compiled);
+                
+                // Store in cache
+                CompiledPatterns[pattern] = compiledRegex;
+                
+                return compiledRegex;
+            }
+        }
+
         private static string BuildRegexPattern(string pattern)
         {
             string regexPattern = "";
@@ -51,8 +78,9 @@ namespace TaskSwitcher.Core.Matchers
             {
                 char lowerP = char.ToLowerInvariant(p);
                 char upperP = char.ToUpperInvariant(p);
-                regexPattern += string.Format(@"([^\p{{Lu}}\s]*?\s?)(\b{0}|{1})", Regex.Escape(lowerP + ""),
-                    Regex.Escape(upperP + ""));
+                regexPattern += string.Format(@"([^\p{{Lu}}\s]*?\s?)(\b{0}|{1})", 
+                    Regex.Escape(lowerP.ToString()),
+                    Regex.Escape(upperP.ToString()));
             }
             return regexPattern;
         }

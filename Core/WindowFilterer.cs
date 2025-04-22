@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using TaskSwitcher.Core.Matchers;
 
 namespace TaskSwitcher.Core
@@ -18,14 +16,10 @@ namespace TaskSwitcher.Core
             (string filterText, string processFilterText) = ParseQuery(query, context.ForegroundWindowProcessTitle);
 
             // Use standard LINQ for small window lists
-            var windowsList = context.Windows.ToList();
-            if (windowsList.Count < ParallelProcessingThreshold)
-            {
-                return FilterSequential(windowsList, filterText, processFilterText);
-            }
-            
-            // Use parallel processing for larger window lists
-            return FilterParallel(windowsList, filterText, processFilterText);
+            List<T> windowsList = context.Windows.ToList();
+            return windowsList.Count < ParallelProcessingThreshold ? FilterSequential(windowsList, filterText, processFilterText) :
+                // Use parallel processing for larger window lists
+                FilterParallel(windowsList, filterText, processFilterText);
         }
         
         private IEnumerable<FilterResult<T>> FilterSequential<T>(List<T> windows, string filterText, string processFilterText)
@@ -65,17 +59,15 @@ namespace TaskSwitcher.Core
             string filterText = query;
             string processFilterText = null;
 
-            string[] queryParts = query.Split(new[] {'.'}, 2);
+            string[] queryParts = query.Split(['.'], 2);
 
-            if (queryParts.Length == 2)
+            if (queryParts.Length != 2) return (filterText, processFilterText);
+            processFilterText = queryParts[0];
+            if (processFilterText.Length == 0)
             {
-                processFilterText = queryParts[0];
-                if (processFilterText.Length == 0)
-                {
-                    processFilterText = foregroundWindowProcessTitle;
-                }
-                filterText = queryParts[1];
+                processFilterText = foregroundWindowProcessTitle;
             }
+            filterText = queryParts[1];
 
             return (filterText, processFilterText);
         }
