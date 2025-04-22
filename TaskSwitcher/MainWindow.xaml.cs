@@ -254,7 +254,9 @@ MenuItem menuItem)
         /// </summary>
         private void LoadData(InitialFocus focus)
         {
-            _unfilteredWindowList = new WindowFinder().GetWindows().Select(window => new AppWindowViewModel(window)).ToList();
+            // Use the lazy loading approach to avoid loading all windows upfront
+            WindowFinder windowFinder = new WindowFinder();
+            _unfilteredWindowList = windowFinder.GetWindowsLazy().Select(window => new AppWindowViewModel(window)).ToList();
 
             AppWindowViewModel firstWindow = _unfilteredWindowList.FirstOrDefault();
 
@@ -271,12 +273,8 @@ MenuItem menuItem)
             _filteredWindowList = new ObservableCollection<AppWindowViewModel>(_unfilteredWindowList);
             _windowCloser = new WindowCloser();
 
-            foreach (AppWindowViewModel window in _unfilteredWindowList)
-            {
-                window.FormattedTitle = new XamlHighlighter().Highlight(new[] {new StringPart(window.AppWindow.Title)});
-                window.FormattedProcessTitle =
-                    new XamlHighlighter().Highlight(new[] {new StringPart(window.AppWindow.ProcessTitle)});
-            }
+            // Process window title formatting in the background for better UI responsiveness
+            Dispatcher.BeginInvoke(new Action(() => FormatWindowTitles(_unfilteredWindowList)), DispatcherPriority.Background);
 
             lb.DataContext = null;
             lb.DataContext = _filteredWindowList;
@@ -287,6 +285,37 @@ MenuItem menuItem)
             tb.Focus();
             CenterWindow();
             ScrollSelectedItemIntoView();
+        }
+
+        /// <summary>
+        /// Formats window titles in the background to improve UI responsiveness
+        /// </summary>
+        private void FormatWindowTitles(List<AppWindowViewModel> windows)
+        {
+            const int batchSize = 10;
+            int processedCount = 0;
+            
+            Action processNextBatch = null;
+            processNextBatch = () =>
+            {
+                int end = Math.Min(processedCount + batchSize, windows.Count);
+                
+                for (int i = processedCount; i < end; i++)
+                {
+                    AppWindowViewModel window = windows[i];
+                    window.FormattedTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.Title) });
+                    window.FormattedProcessTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.ProcessTitle) });
+                }
+                
+                processedCount = end;
+                
+                if (processedCount < windows.Count)
+                {
+                    Dispatcher.BeginInvoke(processNextBatch, DispatcherPriority.Background);
+                }
+            };
+            
+            processNextBatch();
         }
 
         private static bool AreWindowsRelated(SystemWindow window1, SystemWindow window2)
