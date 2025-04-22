@@ -252,42 +252,126 @@ MenuItem menuItem)
             return null;
         }
 
+        // Cancellation token source for window loading operations
+        private System.Threading.CancellationTokenSource _loadCancellationTokenSource;
+        
         /// <summary>
         /// Populates the window list with the current running windows.
         /// </summary>
-        private void LoadData(InitialFocus focus)
+        private async void LoadData(InitialFocus focus)
         {
-            // Use the lazy loading approach to avoid loading all windows upfront
-            WindowFinder windowFinder = new WindowFinder();
-            _unfilteredWindowList = windowFinder.GetWindowsLazy().Select(window => new AppWindowViewModel(window)).ToList();
-
-            AppWindowViewModel firstWindow = _unfilteredWindowList.FirstOrDefault();
-
-            bool foregroundWindowMovedToBottom = false;
-            
-            // Move first window to the bottom of the list if it's related to the foreground window
-            if (firstWindow != null && AreWindowsRelated(firstWindow.AppWindow, _foregroundWindow))
+            // Cancel any previous loading operation
+            if (_loadCancellationTokenSource != null)
             {
-                _unfilteredWindowList.RemoveAt(0);
-                _unfilteredWindowList.Add(firstWindow);
-                foregroundWindowMovedToBottom = true;
+                _loadCancellationTokenSource.Cancel();
+                _loadCancellationTokenSource.Dispose();
             }
-
-            _filteredWindowList = new ObservableCollection<AppWindowViewModel>(_unfilteredWindowList);
-            _windowCloser = new WindowCloser();
-
-            // Process window title formatting in the background for better UI responsiveness
-            Dispatcher.BeginInvoke(new Action(() => FormatWindowTitles(_unfilteredWindowList)), DispatcherPriority.Background);
-
-            lb.DataContext = null;
-            lb.DataContext = _filteredWindowList;
-
-            FocusItemInList(focus, foregroundWindowMovedToBottom);
-
-            tb.Clear();
-            tb.Focus();
-            CenterWindow();
-            ScrollSelectedItemIntoView();
+            
+            // Create a new cancellation token for this operation
+            _loadCancellationTokenSource = new System.Threading.CancellationTokenSource();
+            var cancellationToken = _loadCancellationTokenSource.Token;
+            
+            try
+            {
+                // Initial UI feedback - could show a loading indicator here
+                
+                // Use the lazy loading approach to avoid loading all windows upfront
+                WindowFinder windowFinder = new WindowFinder();
+                
+                // Perform window loading on a background thread
+                _unfilteredWindowList = await Task.Run(() => 
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return windowFinder.GetWindowsLazy().Select(window => new AppWindowViewModel(window)).ToList();
+                }, cancellationToken);
+                
+                // Check for cancellation before proceeding
+                cancellationToken.ThrowIfCancellationRequested();
+                
+                AppWindowViewModel firstWindow = _unfilteredWindowList.FirstOrDefault();
+                bool foregroundWindowMovedToBottom = false;
+                
+                // Move first window to the bottom of the list if it's related to the foreground window
+                if (firstWindow != null && AreWindowsRelated(firstWindow.AppWindow, _foregroundWindow))
+                {
+                    _unfilteredWindowList.RemoveAt(0);
+                    _unfilteredWindowList.Add(firstWindow);
+                    foregroundWindowMovedToBottom = true;
+                }
+                
+                // Check for cancellation before updating the UI
+                cancellationToken.ThrowIfCancellationRequested();
+                
+                _filteredWindowList = new ObservableCollection<AppWindowViewModel>(_unfilteredWindowList);
+                _windowCloser = new WindowCloser();
+                
+                // Update UI before starting background formatting
+                lb.DataContext = null;
+                lb.DataContext = _filteredWindowList;
+                
+                FocusItemInList(focus, foregroundWindowMovedToBottom);
+                tb.Clear();
+                tb.Focus();
+                CenterWindow();
+                ScrollSelectedItemIntoView();
+                
+                // Process window title formatting in the background for better UI responsiveness
+                // Use the same cancellation token to ensure formatting is canceled if a new load starts
+                await Task.Run(() => FormatWindowTitles(_unfilteredWindowList, cancellationToken), cancellationToken);
+            }
+            catch (TaskCanceledException)
+            {
+                // Expected when operation is canceled
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when operation is canceled
+            }
+            catch (Exception ex)
+            {
+                // Log unexpected errors
+                Debug.WriteLine($"Error during window loading: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Formats window titles in the background to improve UI responsiveness
+        /// </summary>
+        private void FormatWindowTitles(List<AppWindowViewModel> windows, System.Threading.CancellationToken cancellationToken)
+        {
+            const int batchSize = 10;
+            int processedCount = 0;
+            
+            while (processedCount < windows.Count)
+            {
+                // Check for cancellation before processing each batch
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+                
+                int end = Math.Min(processedCount + batchSize, windows.Count);
+                var batch = new List<AppWindowViewModel>();
+                
+                // Collect the current batch
+                for (int i = processedCount; i < end; i++)
+                {
+                    batch.Add(windows[i]);
+                }
+                
+                // Update the UI on the dispatcher thread
+                Dispatcher.Invoke(() => 
+                {
+                    foreach (AppWindowViewModel window in batch)
+                    {
+                        window.FormattedTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.Title) });
+                        window.FormattedProcessTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.ProcessTitle) });
+                    }
+                });
+                
+                processedCount = end;
+                
+                // Small delay to keep the UI responsive
+                System.Threading.Thread.Sleep(10);
+            }
         }
 
         /// <summary>
@@ -467,6 +551,21 @@ MenuItem menuItem)
                 _altTabHook?.Dispose();
                 _windowCloser?.Dispose();
                 
+                // Clean up the cancellation token sources
+                if (_filterCancellationTokenSource != null)
+                {
+                    _filterCancellationTokenSource.Cancel();
+                    _filterCancellationTokenSource.Dispose();
+                    _filterCancellationTokenSource = null;
+                }
+                
+                if (_loadCancellationTokenSource != null)
+                {
+                    _loadCancellationTokenSource.Cancel();
+                    _loadCancellationTokenSource.Dispose();
+                    _loadCancellationTokenSource = null;
+                }
+                
                 // Dispose window view models
                 if (_unfilteredWindowList != null)
                 {
@@ -631,36 +730,95 @@ MenuItem menuItem)
             }
         }
 
-        private void TextChanged(object sender, TextChangedEventArgs args)
+        // A cancellation token source to cancel previous filtering operations when new input arrives
+        private System.Threading.CancellationTokenSource _filterCancellationTokenSource;
+        
+        private async void TextChanged(object sender, TextChangedEventArgs args)
         {
             if (!tb.IsEnabled)
             {
                 return;
             }
 
-            string query = tb.Text;
-
-            WindowFilterContext<AppWindowViewModel> context = new WindowFilterContext<AppWindowViewModel>
+            // Cancel any previous filtering operation
+            if (_filterCancellationTokenSource != null)
             {
-                Windows = _unfilteredWindowList,
-                ForegroundWindowProcessTitle = new AppWindow(_foregroundWindow.HWnd).ProcessTitle
-            };
-
-            List<FilterResult<AppWindowViewModel>> filterResults = new WindowFilterer().Filter(context, query).ToList();
-
-            foreach (FilterResult<AppWindowViewModel> filterResult in filterResults)
-            {
-                filterResult.AppWindow.FormattedTitle =
-                    GetFormattedTitleFromBestResult(filterResult.WindowTitleMatchResults);
-                filterResult.AppWindow.FormattedProcessTitle =
-                    GetFormattedTitleFromBestResult(filterResult.ProcessTitleMatchResults);
+                _filterCancellationTokenSource.Cancel();
+                _filterCancellationTokenSource.Dispose();
             }
+            
+            // Create a new cancellation token for this operation
+            _filterCancellationTokenSource = new System.Threading.CancellationTokenSource();
+            var cancellationToken = _filterCancellationTokenSource.Token;
 
-            _filteredWindowList = new ObservableCollection<AppWindowViewModel>(filterResults.Select(r => r.AppWindow));
-            lb.DataContext = _filteredWindowList;
-            if (lb.Items.Count > 0)
+            try
             {
-                lb.SelectedItem = lb.Items[0];
+                string query = tb.Text;
+                
+                // Show some immediate feedback to the user
+                if (!string.IsNullOrEmpty(query))
+                {
+                    // Display a "Filtering..." status or progress indicator here if desired
+                }
+
+                // Create the filter context
+                var context = new WindowFilterContext<AppWindowViewModel>
+                {
+                    Windows = _unfilteredWindowList,
+                    ForegroundWindowProcessTitle = new AppWindow(_foregroundWindow.HWnd).ProcessTitle
+                };
+
+                // Perform filtering on a background thread
+                List<FilterResult<AppWindowViewModel>> filterResults = await Task.Run(() => 
+                {
+                    // Check for cancellation before starting work
+                    cancellationToken.ThrowIfCancellationRequested();
+                    
+                    return new WindowFilterer().Filter(context, query).ToList();
+                }, cancellationToken);
+                
+                // Check for cancellation before formatting titles
+                cancellationToken.ThrowIfCancellationRequested();
+                
+                // Process the formatted titles in batches to avoid UI freezing
+                await Task.Run(() => 
+                {
+                    foreach (FilterResult<AppWindowViewModel> filterResult in filterResults)
+                    {
+                        // Check for cancellation during title formatting
+                        cancellationToken.ThrowIfCancellationRequested();
+                        
+                        filterResult.AppWindow.FormattedTitle =
+                            GetFormattedTitleFromBestResult(filterResult.WindowTitleMatchResults);
+                        filterResult.AppWindow.FormattedProcessTitle =
+                            GetFormattedTitleFromBestResult(filterResult.ProcessTitleMatchResults);
+                    }
+                }, cancellationToken);
+
+                // Check for cancellation before updating UI
+                cancellationToken.ThrowIfCancellationRequested();
+                
+                // Update the UI on the main thread
+                _filteredWindowList = new ObservableCollection<AppWindowViewModel>(filterResults.Select(r => r.AppWindow));
+                lb.DataContext = _filteredWindowList;
+                
+                if (lb.Items.Count > 0)
+                {
+                    lb.SelectedItem = lb.Items[0];
+                }
+            }
+            catch (System.Threading.Tasks.TaskCanceledException)
+            {
+                // The operation was canceled because a new filter request came in - this is expected
+            }
+            catch (System.OperationCanceledException)
+            {
+                // The operation was canceled because a new filter request came in - this is expected
+            }
+            catch (Exception ex)
+            {
+                // Log unexpected errors
+                Debug.WriteLine($"Error during filtering: {ex.Message}");
             }
         }
 

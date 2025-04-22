@@ -22,7 +22,7 @@ namespace TaskSwitcher.Core
                 FilterParallel(windowsList, filterText, processFilterText);
         }
         
-        private IEnumerable<FilterResult<T>> FilterSequential<T>(List<T> windows, string filterText, string processFilterText)
+        private static IEnumerable<FilterResult<T>> FilterSequential<T>(List<T> windows, string filterText, string processFilterText)
             where T : IWindowText
         {
             return windows
@@ -37,7 +37,7 @@ namespace TaskSwitcher.Core
                 });
         }
         
-        private IEnumerable<FilterResult<T>> FilterParallel<T>(List<T> windows, string filterText, string processFilterText)
+        private static IEnumerable<FilterResult<T>> FilterParallel<T>(List<T> windows, string filterText, string processFilterText)
             where T : IWindowText
         {
             return windows
@@ -54,7 +54,7 @@ namespace TaskSwitcher.Core
                 });
         }
 
-        private (string filterText, string processFilterText) ParseQuery(string query, string foregroundWindowProcessTitle)
+        private static (string filterText, string processFilterText) ParseQuery(string query, string foregroundWindowProcessTitle)
         {
             string filterText = query;
             string processFilterText = null;
@@ -94,18 +94,18 @@ namespace TaskSwitcher.Core
 
         private static List<MatchResult> Score(string title, string filterText)
         {
-            StartsWithMatcher startsWithMatcher = new StartsWithMatcher();
-            ContainsMatcher containsMatcher = new ContainsMatcher();
-            SignificantCharactersMatcher significantCharactersMatcher = new SignificantCharactersMatcher();
-            IndividualCharactersMatcher individualCharactersMatcher = new IndividualCharactersMatcher();
+            StartsWithMatcher startsWithMatcher = new();
+            ContainsMatcher containsMatcher = new();
+            SignificantCharactersMatcher significantCharactersMatcher = new();
+            IndividualCharactersMatcher individualCharactersMatcher = new();
 
-            List<MatchResult> results = new List<MatchResult>
-            {
+            List<MatchResult> results =
+            [
                 startsWithMatcher.Evaluate(title, filterText),
                 significantCharactersMatcher.Evaluate(title, filterText),
                 containsMatcher.Evaluate(title, filterText),
                 individualCharactersMatcher.Evaluate(title, filterText)
-            };
+            ];
 
             return results;
         }
