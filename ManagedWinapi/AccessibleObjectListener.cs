@@ -66,6 +66,10 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// Enables this listener so that it reports accessible events.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        /// <summary>
+        /// Enables this listener so that it reports accessible events.
+        /// </summary>
         public bool Enabled
         {
             get
@@ -82,12 +86,20 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// The minimal event type to listen to.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        /// <summary>
+        /// The minimal event type to listen to.
+        /// </summary>
         public AccessibleEventType MinimalEventType
         {
             get { return min; }
             set { min = value; updateListener(); }
         }
 
+        /// <summary>
+        /// The maximal event type to listen to.
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         /// <summary>
         /// The maximal event type to listen to.
         /// </summary>
@@ -101,12 +113,22 @@ namespace ManagedWinapi.Accessibility
         /// The Process ID to listen to.
         /// Default 0 listens to all processes.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        /// <summary>
+        /// The Process ID to listen to.
+        /// Default 0 listens to all processes.
+        /// </summary>
         public UInt32 ProcessId
         {
             get { return processId; }
             set { processId = value; updateListener(); }
         }
 
+        /// <summary>
+        /// The Thread ID to listen to.
+        /// Default 0 listens to all threads.
+        /// </summary> 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         /// <summary>
         /// The Thread ID to listen to.
         /// Default 0 listens to all threads.
