@@ -47,19 +47,35 @@ namespace TaskSwitcher
 
         public MainWindow()
         {
-            InitializeComponent();
+            // Initialize logging system first
+            TaskSwitcher.Core.Utilities.Logger.Initialize();
 
-            SetUpKeyBindings();
+            try
+            {
+                TaskSwitcher.Core.Utilities.Logger.Info("MainWindow initialization starting");
 
-            SetUpNotifyIcon();
+                InitializeComponent();
 
-            SetUpHotKey();
+                SetUpKeyBindings();
 
-            SetUpAltTabHook();
+                SetUpNotifyIcon();
 
-            CheckForUpdates();
+                SetUpHotKey();
 
-            Opacity = 0;
+                SetUpAltTabHook();
+
+                CheckForUpdates();
+
+                Opacity = 0;
+
+                TaskSwitcher.Core.Utilities.Logger.Info("MainWindow initialization completed");
+            }
+            catch (Exception ex)
+            {
+                TaskSwitcher.Core.Utilities.Logger.Error("Error initializing MainWindow", ex);
+                MessageBox.Show($"Error initializing application: {ex.Message}\nSee log file for details.",
+                    "Initialization Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         /// =================================
@@ -251,141 +267,267 @@ MenuItem menuItem)
 
         // Cancellation token source for window loading operations
         private System.Threading.CancellationTokenSource _loadCancellationTokenSource;
-        
+
         /// <summary>
         /// Populates the window list with the current running windows.
         /// </summary>
         private async void LoadData(InitialFocus focus)
         {
-            // Cancel any previous loading operation
-            if (_loadCancellationTokenSource != null)
-            {
-                _loadCancellationTokenSource.Cancel();
-                _loadCancellationTokenSource.Dispose();
-            }
-            
-            // Create a new cancellation token for this operation
-            _loadCancellationTokenSource = new System.Threading.CancellationTokenSource();
-            var cancellationToken = _loadCancellationTokenSource.Token;
-            
+            Stopwatch performanceTimer = Stopwatch.StartNew();
+            TaskSwitcher.Core.Utilities.Logger.Info("LoadData started");
+
             try
             {
-                // Initial UI feedback - could show a loading indicator here
+                // Cancel any previous loading operation
+                if (_loadCancellationTokenSource != null)
+                {
+                    TaskSwitcher.Core.Utilities.Logger.Debug("Cancelling previous load operation");
+                    _loadCancellationTokenSource.Cancel();
+                    _loadCancellationTokenSource.Dispose();
+                }
 
-                // Use the lazy loading approach to avoid loading all windows upfront
-                // Log Chrome tabs that are being detected for debugging
+                // Create a new cancellation token for this operation
+                _loadCancellationTokenSource = new System.Threading.CancellationTokenSource();
+
+                // Create a timeout to avoid hangs - cancel after 10 seconds
+                _loadCancellationTokenSource.CancelAfter(10000);
+
+                var cancellationToken = _loadCancellationTokenSource.Token;
+
+                // Initial UI feedback - could show a loading indicator here
+                TaskSwitcher.Core.Utilities.Logger.Debug("Setting up window finder");
+
+                // Add timeout to Chrome tab detection
                 if (Settings.Default.IncludeBrowserTabs)
                 {
-                    // Set the advanced tab switching option
+                    TaskSwitcher.Core.Utilities.Logger.Info("Browser tabs detection enabled");
+
+                    // Configure Chrome tab detection
                     Core.Browsers.ChromeTabWindow.UseAdvancedTabSwitching = Settings.Default.UseAdvancedTabDetection;
 
-                    Debug.WriteLine("Chrome tabs being detected:");
-                    Debug.WriteLine($"UseAdvancedTabDetection: {Settings.Default.UseAdvancedTabDetection}");
+                    TaskSwitcher.Core.Utilities.Logger.Debug($"Chrome tab settings: UseAdvancedTabDetection={Settings.Default.UseAdvancedTabDetection}");
 
-                    var chromeTabs = Core.Browsers.ChromeTabWindow.GetAllChromeTabs().ToList();
-                    foreach (var tab in chromeTabs)
+                    try
                     {
-                        Debug.WriteLine($"Tab: {tab.DisplayTitle} (ID: {tab.TabIdentifier})");
+                        var chromeDetectionSw = Stopwatch.StartNew();
+                        var chromeTabs = Core.Browsers.ChromeTabWindow.GetAllChromeTabs().ToList();
+                        chromeDetectionSw.Stop();
+
+                        TaskSwitcher.Core.Utilities.Logger.Info($"Found {chromeTabs.Count} Chrome tabs in {chromeDetectionSw.ElapsedMilliseconds}ms");
+
+                        foreach (var tab in chromeTabs)
+                        {
+                            TaskSwitcher.Core.Utilities.Logger.Debug($"Tab: {tab.DisplayTitle} (ID: {tab.TabIdentifier})");
+                        }
                     }
-                    Debug.WriteLine($"Total Chrome tabs found: {chromeTabs.Count}");
+                    catch (Exception ex)
+                    {
+                        TaskSwitcher.Core.Utilities.Logger.Error("Error detecting Chrome tabs", ex);
+                    }
+                }
+                else
+                {
+                    TaskSwitcher.Core.Utilities.Logger.Info("Browser tabs detection disabled");
                 }
 
                 WindowFinder windowFinder = new WindowFinder(Settings.Default.IncludeBrowserTabs);
-                
+
                 // Perform window loading on a background thread
-                _unfilteredWindowList = await Task.Run(() => 
+                var windowsLoadSw = Stopwatch.StartNew();
+                TaskSwitcher.Core.Utilities.Logger.Debug("Starting window loading");
+
+                _unfilteredWindowList = await Task.Run(() =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    return windowFinder.GetWindowsLazy().Select(window => new AppWindowViewModel(window)).ToList();
+
+                    try
+                    {
+                        TaskSwitcher.Core.Utilities.Logger.Debug("Retrieving windows from WindowFinder");
+                        var windows = windowFinder.GetWindowsLazy().Select(window => new AppWindowViewModel(window)).ToList();
+                        TaskSwitcher.Core.Utilities.Logger.Debug($"Retrieved {windows.Count} windows");
+                        return windows;
+                    }
+                    catch (Exception ex)
+                    {
+                        TaskSwitcher.Core.Utilities.Logger.Error($"Error getting windows: {ex.Message}", ex);
+                        throw;
+                    }
                 }, cancellationToken);
-                
+
+                windowsLoadSw.Stop();
+                TaskSwitcher.Core.Utilities.Logger.Info($"Window loading completed in {windowsLoadSw.ElapsedMilliseconds}ms, found {_unfilteredWindowList?.Count ?? 0} windows");
+
                 // Check for cancellation before proceeding
                 cancellationToken.ThrowIfCancellationRequested();
-                
+
                 AppWindowViewModel firstWindow = _unfilteredWindowList.FirstOrDefault();
                 bool foregroundWindowMovedToBottom = false;
-                
+
                 // Move first window to the bottom of the list if it's related to the foreground window
                 if (firstWindow != null && AreWindowsRelated(firstWindow.AppWindow, _foregroundWindow))
                 {
+                    TaskSwitcher.Core.Utilities.Logger.Debug("Moving foreground window to bottom of list");
                     _unfilteredWindowList.RemoveAt(0);
                     _unfilteredWindowList.Add(firstWindow);
                     foregroundWindowMovedToBottom = true;
                 }
-                
+
                 // Check for cancellation before updating the UI
                 cancellationToken.ThrowIfCancellationRequested();
-                
+
+                TaskSwitcher.Core.Utilities.Logger.Debug("Creating filtered window list");
                 _filteredWindowList = new ObservableCollection<AppWindowViewModel>(_unfilteredWindowList);
                 _windowCloser = new WindowCloser();
-                
+
                 // Update UI before starting background formatting
+                TaskSwitcher.Core.Utilities.Logger.Debug("Updating UI with window list");
                 lb.DataContext = null;
                 lb.DataContext = _filteredWindowList;
-                
+
+                TaskSwitcher.Core.Utilities.Logger.Debug("Focusing and positioning UI elements");
                 FocusItemInList(focus, foregroundWindowMovedToBottom);
                 tb.Clear();
                 tb.Focus();
                 CenterWindow();
                 ScrollSelectedItemIntoView();
-                
+
                 // Process window title formatting in the background for better UI responsiveness
                 // Use the same cancellation token to ensure formatting is canceled if a new load starts
+                TaskSwitcher.Core.Utilities.Logger.Debug("Starting background formatting of window titles");
+                var formattingSw = Stopwatch.StartNew();
+
                 await Task.Run(() => FormatWindowTitles(_unfilteredWindowList, cancellationToken), cancellationToken);
+
+                formattingSw.Stop();
+                TaskSwitcher.Core.Utilities.Logger.Debug($"Window title formatting completed in {formattingSw.ElapsedMilliseconds}ms");
+
+                performanceTimer.Stop();
+                TaskSwitcher.Core.Utilities.Logger.Info($"LoadData completed successfully in {performanceTimer.ElapsedMilliseconds}ms");
             }
             catch (TaskCanceledException)
             {
+                performanceTimer.Stop();
+                TaskSwitcher.Core.Utilities.Logger.Warning($"LoadData was cancelled after {performanceTimer.ElapsedMilliseconds}ms");
                 // Expected when operation is canceled
             }
             catch (OperationCanceledException)
             {
+                performanceTimer.Stop();
+                TaskSwitcher.Core.Utilities.Logger.Warning($"LoadData operation was cancelled after {performanceTimer.ElapsedMilliseconds}ms");
                 // Expected when operation is canceled
             }
             catch (Exception ex)
             {
+                performanceTimer.Stop();
                 // Log unexpected errors
-                Debug.WriteLine($"Error during window loading: {ex.Message}");
+                TaskSwitcher.Core.Utilities.Logger.Error($"Error during window loading after {performanceTimer.ElapsedMilliseconds}ms: {ex.Message}", ex);
+
+                MessageBox.Show($"Error loading windows: {ex.Message}\nCheck log file for details.",
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-        
+
         /// <summary>
         /// Formats window titles in the background to improve UI responsiveness
         /// </summary>
         private void FormatWindowTitles(List<AppWindowViewModel> windows, System.Threading.CancellationToken cancellationToken)
         {
+            if (windows == null || windows.Count == 0)
+            {
+                TaskSwitcher.Core.Utilities.Logger.Debug("No windows to format titles for");
+                return;
+            }
+
+            TaskSwitcher.Core.Utilities.Logger.Debug($"Formatting titles for {windows.Count} windows in batches");
             const int batchSize = 10;
             int processedCount = 0;
-            
+            Stopwatch sw = Stopwatch.StartNew();
+
             while (processedCount < windows.Count)
             {
                 // Check for cancellation before processing each batch
                 if (cancellationToken.IsCancellationRequested)
+                {
+                    TaskSwitcher.Core.Utilities.Logger.Debug("Title formatting cancelled");
                     return;
-                
+                }
+
                 int end = Math.Min(processedCount + batchSize, windows.Count);
                 var batch = new List<AppWindowViewModel>();
-                
+
                 // Collect the current batch
                 for (int i = processedCount; i < end; i++)
                 {
                     batch.Add(windows[i]);
                 }
-                
-                // Update the UI on the dispatcher thread
-                Dispatcher.Invoke(() => 
+
+                TaskSwitcher.Core.Utilities.Logger.Debug($"Formatting batch of {batch.Count} windows (progress: {processedCount}/{windows.Count})");
+
+                try
                 {
-                    foreach (AppWindowViewModel window in batch)
+                    // Update the UI on the dispatcher thread with timeout protection
+                    bool dispatcherCompleted = false;
+                    Task dispatcherTask = Dispatcher.InvokeAsync(() =>
                     {
-                        window.FormattedTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.Title) });
-                        window.FormattedProcessTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.ProcessTitle) });
+                        try
+                        {
+                            foreach (AppWindowViewModel window in batch)
+                            {
+                                try
+                                {
+                                    window.FormattedTitle = new XamlHighlighter().Highlight(
+                                        new[] { new StringPart(window.WindowTitle) });
+                                    window.FormattedProcessTitle = new XamlHighlighter().Highlight(
+                                        new[] { new StringPart(window.ProcessTitle) });
+                                }
+                                catch (Exception ex)
+                                {
+                                    TaskSwitcher.Core.Utilities.Logger.Error($"Error formatting window title: {ex.Message}");
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            TaskSwitcher.Core.Utilities.Logger.Error($"Error in dispatcher batch processing: {ex.Message}", ex);
+                        }
+                    }, System.Windows.Threading.DispatcherPriority.Background).Task;
+
+                    // Add a timeout to dispatcher operations to prevent hangs
+                    if (!dispatcherTask.Wait(1000, cancellationToken))
+                    {
+                        TaskSwitcher.Core.Utilities.Logger.Warning("Dispatcher operation timed out while formatting window titles");
                     }
-                });
-                
+                    else
+                    {
+                        dispatcherCompleted = true;
+                    }
+
+                    if (!dispatcherCompleted)
+                    {
+                        TaskSwitcher.Core.Utilities.Logger.Warning(
+                            "Incomplete dispatcher operation during title formatting. This might indicate a UI thread hang.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    TaskSwitcher.Core.Utilities.Logger.Error($"Error in title formatting: {ex.Message}", ex);
+                }
+
                 processedCount = end;
-                
+
                 // Small delay to keep the UI responsive
-                System.Threading.Thread.Sleep(10);
+                try
+                {
+                    System.Threading.Thread.Sleep(10);
+                }
+                catch
+                {
+                    // Ignore sleep exceptions
+                }
             }
+
+            sw.Stop();
+            TaskSwitcher.Core.Utilities.Logger.Debug($"Window title formatting completed in {sw.ElapsedMilliseconds}ms");
         }
 
         /// <summary>
