@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="TaskSwitcher Options" ResizeMode="NoResize" SizeToContent="WidthAndHeight"
-        ShowInTaskbar="False" WindowStyle="ToolWindow" Background="{x:Static SystemColors.WindowBrush}" Height="380"
+        ShowInTaskbar="False" WindowStyle="ToolWindow" Background="{x:Static SystemColors.WindowBrush}" Height="430"
         MaxWidth="350">
     <Window.Resources>
     </Window.Resources>
@@ -28,6 +28,16 @@
                 <LineBreak />
                 Use <Span FontFamily="Consolas" FontWeight="Bold">Ctrl + Alt + Tab</Span> for displaying TaskSwitcher with search activated, or
                 press <Span FontFamily="Consolas" FontWeight="Bold">Alt + S</Span> when the TaskSwitcher overlay appears.
+            </TextBlock>
+            <CheckBox Name="IncludeBrowserTabs" Margin="5,5,5,1">Include browser tabs in window list</CheckBox>
+            <TextBlock Margin="25,0,5,10" FontSize="10" Foreground="DimGray" TextWrapping="Wrap">
+                Shows Chrome browser tabs as separate entries in the window list, allowing quick switching between tabs.
+            </TextBlock>
+            
+            <CheckBox Name="UseAdvancedTabDetection" Margin="25,0,5,1">Use advanced Chrome tab detection</CheckBox>
+            <TextBlock Margin="45,0,5,10" FontSize="10" Foreground="DimGray" TextWrapping="Wrap">
+                Tries additional methods to detect tabs, including keyboard simulation.<LineBreak />
+                Disable this if tab detection causes issues with Chrome.
             </TextBlock>
             <CheckBox x:Name="RunAsAdministrator" Margin="5,5,5,1" Content="Run as Administrator *"/>
             <TextBlock Margin="25,0,5,10" FontSize="10" Foreground="DimGray" TextWrapping="Wrap">

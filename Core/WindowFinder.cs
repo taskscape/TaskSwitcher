@@ -1,12 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using TaskSwitcher.Core.Browsers;
 
 namespace TaskSwitcher.Core
 {
     public class WindowFinder
     {
         private const int DefaultPageSize = 100;
+        private readonly bool _includeBrowserTabs;
+        
+        public WindowFinder(bool includeBrowserTabs = true)
+        {
+            _includeBrowserTabs = includeBrowserTabs;
+        }
         
         /// <summary>
         /// Gets all windows (eager loading)
@@ -23,8 +30,18 @@ namespace TaskSwitcher.Core
         /// <returns>An enumerable of windows that meet the AltTab criteria</returns>
         public IEnumerable<AppWindow> GetWindowsLazy()
         {
-            return AppWindow.AllToplevelWindows
+            // Get regular application windows
+            var appWindows = AppWindow.AllToplevelWindows
                 .Where(a => a.IsAltTabWindow());
+            
+            if (!_includeBrowserTabs)
+                return appWindows;
+                
+            // Get Chrome tab windows
+            var chromeTabs = ChromeTabWindow.GetAllChromeTabs();
+            
+            // Combine regular windows and Chrome tabs
+            return appWindows.Concat(chromeTabs);
         }
         
         /// <summary>

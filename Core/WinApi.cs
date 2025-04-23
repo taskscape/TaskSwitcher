@@ -26,6 +26,17 @@ namespace TaskSwitcher.Core
 
         [DllImport("user32.dll", SetLastError = true)]
         public static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
+        
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+        
+        public static int GetWindowProcessId(IntPtr hWnd)
+        {
+            uint processId;
+            GetWindowThreadProcessId(hWnd, out processId);
+            return (int)processId;
+        }
 
         public enum GetAncestorFlags
         {

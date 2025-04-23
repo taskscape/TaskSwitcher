@@ -1,0 +1,42 @@
+## FIXING THE TASKWITCHER HANGING ISSUE
+
+The application is hanging because of issues with the Chrome tab detection functionality. Here are the steps to fix it:
+
+### STEP 1: ADD LOGGING SYSTEM
+1. Create the `Utilities` folder in the Core project
+2. Add the `Logger.cs` file we created to the Core\Utilities folder
+3. Add a reference to System.Diagnostics in any files that need it
+
+### STEP 2: MODIFY MAINWINDOW.CS
+1. Replace the MainWindow constructor with the one from `MainWindowInitialization.cs`
+2. Replace the LoadData method with the one from `MainWindowLoadDataChanges.cs`
+3. Replace the FormatWindowTitles method with the one from `MainWindowFormatTitlesChanges.cs`
+
+### STEP 3: DISABLE CHROME TAB DETECTION (TEMPORARY)
+For a quick fix, implement the code in `DisableChromeTabDetection.cs` which will:
+1. Replace the GetAllChromeTabs method to always return an empty collection
+2. Add a debug menu option to enable/disable Chrome tabs
+
+### STEP 4: ADD TIMEOUT PROTECTION
+The updated code includes:
+1. Timeout protection for all UI Automation operations
+2. Global timeout for LoadData to prevent application hanging
+3. Improved error handling with detailed logging
+4. Performance timing for all operations
+
+### STEP 5: TEST THE FIX
+1. Run the application with these changes
+2. Check the log file (located in %LOCALAPPDATA%\TaskSwitcher\Logs)
+3. Initially, leave Chrome tab detection disabled
+4. If the application works well, you can try enabling Chrome tabs using the debug menu
+
+### ADVANCED FIX (IF NEEDED)
+If you want to properly fix the Chrome tab detection rather than disabling it:
+1. Implement the code in `ChromeTabAutomation.cs` with its timeout protections
+2. Consider using Chrome's debugging protocol instead of UI Automation
+3. Try a more limited approach that only detects active tabs, not all tabs
+
+### LOG FILE LOCATION
+The logs are written to: `%LOCALAPPDATA%\TaskSwitcher\Logs\TaskSwitcher_yyyy-MM-dd.log`
+
+Check these logs to understand exactly where the application is hanging and what operations are taking too long.

@@ -25,6 +25,9 @@ namespace TaskSwitcher
         #endregion
     }
 
+    public class BoolToWhateverConverter : BoolConverter<object>
+    {
+    }
 
     public class BoolToDoubleConverter : BoolConverter<double>
     {

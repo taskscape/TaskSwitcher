@@ -142,5 +142,29 @@ namespace TaskSwitcher.Properties {
                 this["EnableHotKey"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool IncludeBrowserTabs {
+            get {
+                return ((bool)(this["IncludeBrowserTabs"]));
+            }
+            set {
+                this["IncludeBrowserTabs"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool UseAdvancedTabDetection {
+            get {
+                return ((bool)(this["UseAdvancedTabDetection"]));
+            }
+            set {
+                this["UseAdvancedTabDetection"] = value;
+            }
+        }
     }
 }

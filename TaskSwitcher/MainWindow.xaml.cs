@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -233,16 +233,13 @@ MenuItem menuItem)
         {
             try
             {
-                using (WebClient client = new WebClient())
+                using WebClient client = new();
+                string versionAsString = await client.DownloadStringTaskAsync(
+                    "https://raw.github.com/taskscape/TaskSwitcher/update/version.txt");
+
+                if (Version.TryParse(versionAsString, out Version newVersion))
                 {
-                    string versionAsString = await client.DownloadStringTaskAsync(
-                        "https://raw.github.com/kvakulo/TaskSwitcher/update/version.txt");
-                    
-                    Version newVersion;
-                    if (Version.TryParse(versionAsString, out newVersion))
-                    {
-                        return newVersion;
-                    }
+                    return newVersion;
                 }
             }
             catch (WebException)
@@ -274,9 +271,26 @@ MenuItem menuItem)
             try
             {
                 // Initial UI feedback - could show a loading indicator here
-                
+
                 // Use the lazy loading approach to avoid loading all windows upfront
-                WindowFinder windowFinder = new WindowFinder();
+                // Log Chrome tabs that are being detected for debugging
+                if (Settings.Default.IncludeBrowserTabs)
+                {
+                    // Set the advanced tab switching option
+                    Core.Browsers.ChromeTabWindow.UseAdvancedTabSwitching = Settings.Default.UseAdvancedTabDetection;
+
+                    Debug.WriteLine("Chrome tabs being detected:");
+                    Debug.WriteLine($"UseAdvancedTabDetection: {Settings.Default.UseAdvancedTabDetection}");
+
+                    var chromeTabs = Core.Browsers.ChromeTabWindow.GetAllChromeTabs().ToList();
+                    foreach (var tab in chromeTabs)
+                    {
+                        Debug.WriteLine($"Tab: {tab.DisplayTitle} (ID: {tab.TabIdentifier})");
+                    }
+                    Debug.WriteLine($"Total Chrome tabs found: {chromeTabs.Count}");
+                }
+
+                WindowFinder windowFinder = new WindowFinder(Settings.Default.IncludeBrowserTabs);
                 
                 // Perform window loading on a background thread
                 _unfilteredWindowList = await Task.Run(() => 

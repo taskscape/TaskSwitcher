@@ -46,7 +46,23 @@ namespace TaskSwitcher
             AltTabCheckBox.IsChecked = Settings.Default.AltTabHook;
             AutoSwitch.IsChecked = Settings.Default.AutoSwitch;
             AutoSwitch.IsEnabled = Settings.Default.AltTabHook;
+            IncludeBrowserTabs.IsChecked = Settings.Default.IncludeBrowserTabs;
+            UseAdvancedTabDetection.IsChecked = Settings.Default.UseAdvancedTabDetection;
+            UseAdvancedTabDetection.IsEnabled = Settings.Default.IncludeBrowserTabs;
             RunAsAdministrator.IsChecked = Settings.Default.RunAsAdmin;
+            
+            // Set up event handlers
+            IncludeBrowserTabs.Checked += IncludeBrowserTabs_CheckedChanged;
+            IncludeBrowserTabs.Unchecked += IncludeBrowserTabs_CheckedChanged;
+        }
+        
+        private void IncludeBrowserTabs_CheckedChanged(object sender, RoutedEventArgs e)
+        {
+            UseAdvancedTabDetection.IsEnabled = IncludeBrowserTabs.IsChecked.GetValueOrDefault();
+            if (!UseAdvancedTabDetection.IsEnabled)
+            {
+                UseAdvancedTabDetection.IsChecked = false;
+            }
         }
 
         private void Cancel_Click(object sender, RoutedEventArgs e)
@@ -86,6 +102,8 @@ namespace TaskSwitcher
             Settings.Default.EnableHotKey = HotKeyCheckBox.IsChecked.GetValueOrDefault();
             Settings.Default.AltTabHook = AltTabCheckBox.IsChecked.GetValueOrDefault();
             Settings.Default.AutoSwitch = AutoSwitch.IsChecked.GetValueOrDefault();
+            Settings.Default.IncludeBrowserTabs = IncludeBrowserTabs.IsChecked.GetValueOrDefault();
+            Settings.Default.UseAdvancedTabDetection = UseAdvancedTabDetection.IsChecked.GetValueOrDefault();
             Settings.Default.RunAsAdmin = RunAsAdministrator.IsChecked.GetValueOrDefault();
             Settings.Default.Save();
 

@@ -30,6 +30,8 @@
     <Window.Resources>
         <local:WindowHandleToIconConverter x:Key="WindowHandleToIconConverter" />
         <local:WindowHandleToCachedIconConverter x:Key="WindowHandleToCachedIconConverter" />
+        <local:BoolToWhateverConverter x:Key="ChromeTabIndicatorConverter" IfTrue="🌐" IfFalse="" />
+        <local:BoolToColorConverter x:Key="ChromeTabBackgroundConverter" IfTrue="#E8F0FE" IfFalse="Transparent" />
     </Window.Resources>
 
     <Border Padding="3" Background="White" BorderBrush="DarkGray" BorderThickness="1" Name="Border">
@@ -155,7 +157,7 @@
                                     </Style.Triggers>
                                 </Style>
                             </StackPanel.Resources>
-                            <Grid>
+                            <Grid Background="{Binding IsChromeTab, Converter={StaticResource ChromeTabBackgroundConverter}}">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
@@ -176,13 +178,16 @@
                                         </PriorityBinding>
                                     </Image.Source>
                                 </Image>
-                                <TextBlock local:FormattedTextAttribute.FormattedText="{Binding Path=FormattedTitle}"
-                                           Grid.Row="0" Grid.Column="1" Margin="3,0">
-                                    <TextBlock.Foreground>
-                                        <SolidColorBrush
-                                            Color="{Binding IsBeingClosed, Converter={StaticResource TitleColorConverter}, Mode=OneTime}" />
-                                    </TextBlock.Foreground>
-                                </TextBlock>
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                                    <TextBlock Text="{Binding IsChromeTab, Converter={StaticResource ChromeTabIndicatorConverter}}" 
+                                               Margin="0,0,5,0" FontWeight="Bold" Foreground="#1A73E8" />
+                                    <TextBlock local:FormattedTextAttribute.FormattedText="{Binding Path=FormattedTitle}" Margin="0,0,3,0">
+                                        <TextBlock.Foreground>
+                                            <SolidColorBrush
+                                                Color="{Binding IsBeingClosed, Converter={StaticResource TitleColorConverter}, Mode=OneTime}" />
+                                        </TextBlock.Foreground>
+                                    </TextBlock>
+                                </StackPanel>
                                 <TextBlock
                                     local:FormattedTextAttribute.FormattedText="{Binding Path=FormattedProcessTitle}"
                                     Grid.Row="0" Grid.Column="2" Margin="0" TextAlignment="Right">

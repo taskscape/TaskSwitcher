@@ -6,6 +6,7 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 using TaskSwitcher.Core;
+using TaskSwitcher.Core.Browsers;
 
 namespace TaskSwitcher
 {
@@ -14,15 +15,29 @@ namespace TaskSwitcher
         public AppWindowViewModel(AppWindow appWindow)
         {
             AppWindow = appWindow;
+            IsChromeTab = appWindow is ChromeTabWindow;
         }
 
         public AppWindow AppWindow { get; private set; }
+        
+        /// <summary>
+        /// Whether this window represents a Chrome tab
+        /// </summary>
+        public bool IsChromeTab { get; }
 
         #region IWindowText Members
 
         public string WindowTitle
         {
-            get { return AppWindow.Title; }
+            get 
+            {
+                // If this is a Chrome tab, use its DisplayTitle property instead of Title
+                if (IsChromeTab && AppWindow is ChromeTabWindow chromeTab)
+                {
+                    return chromeTab.DisplayTitle;
+                }
+                return AppWindow.Title;
+            }
         }
 
         public string ProcessTitle

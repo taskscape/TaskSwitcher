@@ -15,7 +15,7 @@ namespace TaskSwitcher.Core
     /// </summary>
     public class AppWindow : SystemWindow
     {
-        public string ProcessTitle
+        public virtual string ProcessTitle
         {
             get
             {
@@ -31,11 +31,11 @@ namespace TaskSwitcher.Core
             }
         }
 
-        public Icon LargeWindowIcon => new WindowIconFinder().Find(this, WindowIconSize.Large);
+        public virtual Icon LargeWindowIcon => new WindowIconFinder().Find(this, WindowIconSize.Large);
 
-        public Icon SmallWindowIcon => new WindowIconFinder().Find(this, WindowIconSize.Small);
+        public virtual Icon SmallWindowIcon => new WindowIconFinder().Find(this, WindowIconSize.Small);
 
-        public string ExecutablePath => GetExecutablePath(Process.Id);
+        public virtual string ExecutablePath => GetExecutablePath(Process.Id);
 
         public AppWindow(IntPtr HWnd) : base(HWnd)
         {
@@ -44,13 +44,13 @@ namespace TaskSwitcher.Core
         /// <summary>
         /// Sets the focus to this window and brings it to the foreground.
         /// </summary>
-        public void SwitchTo()
+        public virtual void SwitchTo()
         {
             // This function is deprecated, so should probably be replaced.
             WinApi.SwitchToThisWindow(HWnd, true);
         }
 
-        public void SwitchToLastVisibleActivePopup()
+        public virtual void SwitchToLastVisibleActivePopup()
         {
             IntPtr lastActiveVisiblePopup = GetLastActiveVisiblePopup();
             WinApi.SwitchToThisWindow(lastActiveVisiblePopup, true);
