@@ -88,83 +88,25 @@ namespace TaskSwitcher.Core.Browsers
                     
                     try
                     {
-                        // Get the active tab from the window title
-                        var activeTabTitle = chromeWindow.Title;
-                        
-                        // Clean up the title by removing trailing " - Google Chrome"
-                        if (activeTabTitle.EndsWith(" - Google Chrome"))
+                        AutomationElement root = AutomationElement.FromHandle(chromeWindow.HWnd);
+                        Condition condition = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem);
+                        var tabs = root.FindAll(TreeScope.Descendants, condition);
+
+                        int tabIndex = 0;
+                        foreach (AutomationElement tabitem in tabs)
                         {
-                            activeTabTitle = activeTabTitle.Substring(0, activeTabTitle.Length - 16);
+                            Console.WriteLine(tabitem.Current.Name);
+                            string tabIdentifier = $"{chromeWindow.HWnd}:{tabIndex}:{tabitem.Current.Name}";
+                            chromeTabs.Add(new ChromeTab
+                            {
+                                Title = tabitem.Current.Name,
+                                BrowserHandle = chromeWindow.HWnd,
+                                TabIndex = tabIndex,
+                                TabIdentifier = tabIdentifier
+                            });
+                            tabIndex++;
                         }
-                        
-                        Logger.Debug($"Processing Chrome window: {activeTabTitle}");
-                        
-                        // Use UI Automation to find all tabs in this Chrome window
-                        var stopwatchTabs = Stopwatch.StartNew();
-                        var tabs = GetChromeTabs(chromeWindow.HWnd);
-                        stopwatchTabs.Stop();
-                        
-                        if (tabs.Count > 0)
-                        {
-                            Logger.Debug($"Found {tabs.Count} tabs using UI Automation in {stopwatchTabs.ElapsedMilliseconds}ms");
-                            // Add all tabs found using UI Automation
-                            foreach (var tab in tabs)
-                            {
-                                chromeTabs.Add(tab);
-                            }
-                        }
-                        else
-                        {
-                            Logger.Debug("UI Automation failed, trying fallback methods");
-                            
-                            // Try the keyboard simulation fallback approach if advanced detection is enabled
-                            var tabTitles = new List<string>();
-                            bool useAdvancedDetection = true; // Default value
-                            
-                            if (useAdvancedDetection)
-                            {
-                                var stopwatchFallback = Stopwatch.StartNew();
-                                tabTitles = ChromeTabsEnumerator.EnumerateTabsByCycling(chromeWindow.HWnd);
-                                stopwatchFallback.Stop();
-                                Logger.Debug($"Keyboard enumeration took {stopwatchFallback.ElapsedMilliseconds}ms");
-                            }
-                            
-                            if (tabTitles.Count > 0)
-                            {
-                                Logger.Debug($"Found {tabTitles.Count} tabs using keyboard simulation");
-                                
-                                // Add tabs found using keyboard simulation
-                                int tabIndex = 0;
-                                foreach (var tabTitle in tabTitles)
-                                {
-                                    string tabIdentifier = $"{chromeWindow.HWnd}:{tabIndex}:{tabTitle}";
-                                    
-                                    chromeTabs.Add(new ChromeTab
-                                    {
-                                        Title = tabTitle,
-                                        BrowserHandle = chromeWindow.HWnd,
-                                        TabIndex = tabIndex,
-                                        TabIdentifier = tabIdentifier
-                                    });
-                                    
-                                    tabIndex++;
-                                }
-                            }
-                            else
-                            {
-                                Logger.Debug("All methods failed, adding just the active tab");
-                                // Last resort - add just the active tab
-                                string tabIdentifier = $"{chromeWindow.HWnd}:0:{activeTabTitle}";
-                                
-                                chromeTabs.Add(new ChromeTab
-                                {
-                                    Title = activeTabTitle,
-                                    BrowserHandle = chromeWindow.HWnd,
-                                    TabIndex = 0,
-                                    TabIdentifier = tabIdentifier
-                                });
-                            }
-                        }
+
                     }
                     catch (Exception ex)
                     {
