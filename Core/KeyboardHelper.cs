@@ -28,7 +28,7 @@ namespace TaskSwitcher.Core
             uint scanCode = WinApi.MapVirtualKeyEx(virtualKey, WinApi.MapVirtualKeyMapTypes.MAPVK_VK_TO_CHAR, hkl);
 
             StringBuilder stringBuilder = new StringBuilder(10);
-            int rc = WinApi.ToUnicodeEx(virtualKey, scanCode, Array.Empty<Keys>(), stringBuilder, stringBuilder.Capacity, 0, hkl);
+            WinApi.ToUnicodeEx(virtualKey, scanCode, Array.Empty<Keys>(), stringBuilder, stringBuilder.Capacity, 0, hkl);
             return stringBuilder.ToString();
         }
     }

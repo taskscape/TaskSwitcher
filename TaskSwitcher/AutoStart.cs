@@ -12,7 +12,7 @@ namespace TaskSwitcher
     {
         public bool IsEnabled
         {
-            get { return HasShortcut(); }
+            get => HasShortcut();
 
             set
             {

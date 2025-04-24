@@ -165,7 +165,9 @@ namespace TaskSwitcher
                 {
                     Items =
     {
-        new ToolStripMenuItem("Options", null, (s, e) => Options()),
+        new ToolStripMenuItem("Options",
+                              null,
+                              (s, e) => Options()),
         runOnStartupMenuItem,
         new ToolStripMenuItem("About", null, (s, e) => About()),
         new ToolStripMenuItem("Exit", null, (s, e) => Quit())
@@ -215,7 +217,7 @@ MenuItem menuItem)
                         "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
                     if (result == MessageBoxResult.Yes)
                     {
-                        Process.Start("https://github.com/kvakulo/TaskSwitcher/releases/latest");
+                        Process.Start("https://github.com/Taskscape/TaskSwitcher/releases/latest");
                     }
                 }
                 else
@@ -236,7 +238,7 @@ MenuItem menuItem)
                 using (WebClient client = new WebClient())
                 {
                     string versionAsString = await client.DownloadStringTaskAsync(
-                        "https://raw.github.com/kvakulo/TaskSwitcher/update/version.txt");
+                        "https://raw.github.com/taskscape/TaskSwitcher/update/version.txt");
                     
                     Version newVersion;
                     if (Version.TryParse(versionAsString, out newVersion))
@@ -302,7 +304,7 @@ MenuItem menuItem)
                 // Check for cancellation before updating the UI
                 cancellationToken.ThrowIfCancellationRequested();
                 
-                _filteredWindowList = new ObservableCollection<AppWindowViewModel>(_unfilteredWindowList);
+                _filteredWindowList = [.. _unfilteredWindowList];
                 _windowCloser = new WindowCloser();
                 
                 // Update UI before starting background formatting

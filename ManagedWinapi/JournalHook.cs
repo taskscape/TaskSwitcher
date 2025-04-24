@@ -104,31 +104,27 @@ namespace ManagedWinapi.Hooks
         /// <summary>
         /// The window this message has been sent to.
         /// </summary>
-        public IntPtr HWnd { get { return msg.hWnd; } }
+        public IntPtr HWnd => msg.hWnd;
 
         /// <summary>
         /// The message.
         /// </summary>
-        public uint Message { get { return msg.message; } }
+        public uint Message => msg.message;
 
         /// <summary>
         /// The first parameter of the message.
         /// </summary>
-        public uint ParamL { get { return msg.paramL; } }
+        public uint ParamL => msg.paramL;
 
         /// <summary>
         /// The second parameter of the message.
         /// </summary>
-        public uint ParamH { get { return msg.paramH; } }
+        public uint ParamH => msg.paramH;
 
         /// <summary>
         /// The timestamp of the message.
         /// </summary>
-        public int Time
-        {
-            get => msg.time;
-            set { msg.time = value; }
-        }
+        public int Time => msg.time;
 
         /// <summary>
         /// Returns a System.String that represents the current System.Object.
@@ -137,84 +133,6 @@ namespace ManagedWinapi.Hooks
         {
             return "JournalMessage[hWnd=" + msg.hWnd + ",message=" + msg.message + ",L=" + msg.paramL +
                 ",H=" + msg.paramH + ",time=" + msg.time + "]";
-        }
-    }
-
-    /// <summary>
-    /// Event data for a journal record event.
-    /// </summary>
-    public class JournalRecordEventArgs : EventArgs
-    {
-        private JournalMessage msg;
-
-        internal JournalRecordEventArgs(JournalMessage msg)
-        {
-            this.msg = msg;
-        }
-
-        /// <summary>
-        /// The recorded message.
-        /// </summary>
-        public JournalMessage RecordedMessage => msg;
-    }
-
-    /// <summary>
-    /// A hook that can be used to create a log of keyboard and mouse events.
-    /// </summary>
-    public class JournalRecordHook : JournalHook
-    {
-        /// <summary>
-        /// Occurs when a system modal dialog appears. This may be used
-        /// to stop recording.
-        /// </summary>
-        public event EventHandler SystemModalDialogAppeared;
-
-        /// <summary>
-        /// Occurs when a system modal dialog disappears. This may be used
-        /// to continue recording.
-        /// </summary>
-        public event EventHandler SystemModalDialogDisappeared;
-
-        /// <summary>
-        /// Occurs when an event can be recorded.
-        /// </summary>
-        public event EventHandler<JournalRecordEventArgs> RecordEvent;
-
-        /// <summary>
-        /// Creates a new journal record hook.
-        /// </summary>
-        public JournalRecordHook()
-            : base(HookType.WH_JOURNALRECORD)
-        {
-            base.Callback += JournalRecordHook_Callback;
-        }
-
-        private int JournalRecordHook_Callback(int code, IntPtr wParam, IntPtr lParam, ref bool callNext)
-        {
-            if (code == HC_ACTION)
-            {
-                EVENTMSG em = (EVENTMSG)Marshal.PtrToStructure(lParam, typeof(EVENTMSG));
-                JournalMessage jm = JournalMessage.Create(em);
-                if (RecordEvent != null)
-                {
-                    RecordEvent(this, new JournalRecordEventArgs(jm));
-                }
-            }
-            else if (code == HC_SYSMODALON)
-            {
-                if (SystemModalDialogAppeared != null)
-                {
-                    SystemModalDialogAppeared(this, new EventArgs());
-                }
-            }
-            else if (code == HC_SYSMODALOFF)
-            {
-                if (SystemModalDialogDisappeared != null)
-                {
-                    SystemModalDialogDisappeared(this, new EventArgs());
-                }
-            }
-            return 0;
         }
     }
 

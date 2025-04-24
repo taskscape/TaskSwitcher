@@ -20,7 +20,6 @@
 using System;
 using System.Collections.Generic;
 using System.Management;
-using System.Security.Principal;
 using System.Runtime.InteropServices;
 using System.Net.NetworkInformation;
 using System.IO;
@@ -65,47 +64,16 @@ namespace ManagedWinapi
         private static extern void LsaClose(IntPtr ObjectHandle);
 
         /// <summary>
-        /// The security identifier of this machine. This id is generated at 
-        /// installation time (or when running tools like SysPrep or NewSid) 
-        /// and is used to generate security identifiers of local users and to 
-        /// authenticate the machine in a domain.
-        /// </summary>
-        public static SecurityIdentifier MachineSID
-        {
-            get
-            {
-                int objectAttributes = 0;
-                IntPtr policyHandle;
-                IntPtr pInfo;
-                POLICY_ACCOUNT_DOMAIN_INFO info;
-                LsaOpenPolicy(IntPtr.Zero, ref objectAttributes, POLICY_VIEW_LOCAL_INFORMATION,
-                    out policyHandle);
-                LsaQueryInformationPolicy(policyHandle, PolicyAccountDomainInformation, out pInfo);
-                info = (POLICY_ACCOUNT_DOMAIN_INFO)Marshal.PtrToStructure(pInfo, typeof(POLICY_ACCOUNT_DOMAIN_INFO));
-                SecurityIdentifier sid = new SecurityIdentifier(info.DomainSid);
-                LsaFreeMemory(ref info);
-                LsaClose(policyHandle);
-                return sid;
-            }
-        }
-
-        /// <summary>
         /// The DNS host name of this machine. Can be easily changed.
         /// </summary>
-        public static string HostName
-        {
-            get { return Dns.GetHostName(); }
-        }
+        public static string HostName => Dns.GetHostName();
 
         /// <summary>
         /// The NetBIOS name of this machine. Can be easily changed; having two 
         /// machines with same name on the same network can cause trouble with 
         /// shared folders, though.
         /// </summary>
-        public static string MachineName
-        {
-            get { return Environment.MachineName; }
-        }
+        public static string MachineName => Environment.MachineName;
 
         /// <summary>
         /// The Media Access Control addresses of all network adapters. Note 
@@ -138,13 +106,7 @@ namespace ManagedWinapi
         /// addresses, or the MAC address that is used for connecting to a 
         /// specific IP address.
         /// </summary>
-        public static NetworkInterface[] NetworkInterfaces
-        {
-            get
-            {
-                return NetworkInterface.GetAllNetworkInterfaces();
-            }
-        }
+        public static NetworkInterface[] NetworkInterfaces => NetworkInterface.GetAllNetworkInterfaces();
 
         /// <summary>
         /// Get the Volume Serial Numbers from all hard disk partitions.

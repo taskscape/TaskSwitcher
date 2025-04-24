@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Windows.Forms;
 using ManagedWinapi;
 using ManagedWinapi.Hooks;
@@ -10,8 +9,8 @@ namespace TaskSwitcher
 
     public class AltTabHookEventArgs : EventArgs
     {
-        public bool CtrlDown { get; set; }
-        public bool ShiftDown { get; set; }
+        public bool CtrlDown { get; init; }
+        public bool ShiftDown { get; init; }
         public bool Handled { get; set; }
     }
 
@@ -75,21 +74,15 @@ namespace TaskSwitcher
 
         private AltTabHookEventArgs OnPressed(bool shiftDown, bool ctrlDown)
         {
-            AltTabHookEventArgs altTabHookEventArgs = new AltTabHookEventArgs { ShiftDown = shiftDown, CtrlDown = ctrlDown };
+            AltTabHookEventArgs altTabHookEventArgs = new() { ShiftDown = shiftDown, CtrlDown = ctrlDown };
             AltTabHookEventHandler handler = Pressed;
-            if (handler != null)
-            {
-                handler(this, altTabHookEventArgs);
-            }
+            handler?.Invoke(this, altTabHookEventArgs);
             return altTabHookEventArgs;
         }
 
         public void Dispose()
         {
-            if (_lowLevelKeyboardHook != null)
-            {
-                _lowLevelKeyboardHook.Dispose();
-            }
+            _lowLevelKeyboardHook?.Dispose();
         }
     }
 }

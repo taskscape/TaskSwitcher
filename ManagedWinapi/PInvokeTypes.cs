@@ -92,22 +92,22 @@ namespace ManagedWinapi.Windows
         /// <summary>
         /// HEIGHT
         /// </summary>
-        public int Height { get { return Bottom - Top; } }
+        public int Height => Bottom - Top;
 
         /// <summary>
         /// WIDTH
         /// </summary>
-        public int Width { get { return Right - Left; } }
+        public int Width => Right - Left;
 
         /// <summary>
         /// SIZE
         /// </summary>
-        public Size Size { get { return new Size(Width, Height); } }
+        public Size Size => new(Width, Height);
 
         /// <summary>
         /// LOCATION
         /// </summary>
-        public Point Location { get { return new Point(Left, Top); } }
+        public Point Location => new(Left, Top);
 
         // Handy method for converting to a System.Drawing.Rectangle
         /// <summary>

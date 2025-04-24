@@ -25,8 +25,7 @@ namespace TaskSwitcher
 
         private static void FormattedTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            TextBlock textBlock = d as TextBlock;
-            if (textBlock == null)
+            if (d is not TextBlock textBlock)
             {
                 return;
             }

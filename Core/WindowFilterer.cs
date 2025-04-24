@@ -114,14 +114,14 @@ namespace TaskSwitcher.Core
     // Helper class to hold intermediate results during filtering
     internal class WindowFilterResult<T>
     {
-        public T Window { get; set; }
-        public List<MatchResult> ResultsTitle { get; set; }
-        public List<MatchResult> ResultsProcessTitle { get; set; }
+        public T Window { get; init; }
+        public List<MatchResult> ResultsTitle { get; init; }
+        public List<MatchResult> ResultsProcessTitle { get; init; }
     }
 
     public class WindowFilterContext<T> where T : IWindowText
     {
-        public string ForegroundWindowProcessTitle { get; set; }
-        public IEnumerable<T> Windows { get; set; } 
+        public string ForegroundWindowProcessTitle { get; init; }
+        public IEnumerable<T> Windows { get; init; } 
     }
 }
