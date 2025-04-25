@@ -7,19 +7,6 @@ namespace TaskSwitcher.Core
 {
     internal static class WinApi
     {
-        public delegate bool EnumWindowsProc(IntPtr hWnd, int lParam);
-
-        public static IntPtr Statusbar = FindWindow("Shell_TrayWnd", "");
-
-        [DllImport("user32.dll", SetLastError = true)]
-        public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
-
-        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-
-        [DllImport("user32.dll")]
-        public static extern int EnumWindows(EnumWindowsProc ewp, int lParam);
-
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool IsWindowVisible(IntPtr hWnd);
@@ -154,13 +141,7 @@ namespace TaskSwitcher.Core
 
         public enum GetWindowCmd : uint
         {
-            GW_HWNDFIRST = 0,
-            GW_HWNDLAST = 1,
-            GW_HWNDNEXT = 2,
-            GW_HWNDPREV = 3,
             GW_OWNER = 4,
-            GW_CHILD = 5,
-            GW_ENABLEDPOPUP = 6
         }
 
 
@@ -196,60 +177,18 @@ namespace TaskSwitcher.Core
         public enum MapVirtualKeyMapTypes : uint
         {
             /// <summary>
-            /// uCode is a virtual-key code and is translated into a scan code.
-            /// If it is a virtual-key code that does not distinguish between left- and
-            /// right-hand keys, the left-hand scan code is returned.
-            /// If there is no translation, the function returns 0.
-            /// </summary>
-            MAPVK_VK_TO_VSC = 0x00,
-
-            /// <summary>
-            /// uCode is a scan code and is translated into a virtual-key code that
-            /// does not distinguish between left- and right-hand keys. If there is no
-            /// translation, the function returns 0.
-            /// </summary>
-            MAPVK_VSC_TO_VK = 0x01,
-
-            /// <summary>
             /// uCode is a virtual-key code and is translated into an unshifted
             /// character value in the low-order word of the return value. Dead keys (diacritics)
             /// are indicated by setting the top bit of the return value. If there is no
             /// translation, the function returns 0.
             /// </summary>
             MAPVK_VK_TO_CHAR = 0x02,
-
-            /// <summary>
-            /// Windows NT/2000/XP: uCode is a scan code and is translated into a
-            /// virtual-key code that distinguishes between left- and right-hand keys. If
-            /// there is no translation, the function returns 0.
-            /// </summary>
-            MAPVK_VSC_TO_VK_EX = 0x03,
-
-            /// <summary>
-            /// Not currently documented
-            /// </summary>
-            MAPVK_VK_TO_VSC_EX = 0x04
         }
-
-        [DllImport("user32.dll")]
-        public static extern IntPtr SendMessage(IntPtr hwnd, int message, int wParam, IntPtr lParam);
-
-        [DllImport("user32.dll")]
-        public static extern IntPtr DefWindowProc(IntPtr hWnd, int message, int wParam, IntPtr lParam);
 
         public enum ClassLongFlags
         {
-            GCLP_MENUNAME = -8,
-            GCLP_HBRBACKGROUND = -10,
-            GCLP_HCURSOR = -12,
             GCLP_HICON = -14,
-            GCLP_HMODULE = -16,
-            GCL_CBWNDEXTRA = -18,
-            GCL_CBCLSEXTRA = -20,
-            GCLP_WNDPROC = -24,
-            GCL_STYLE = -26,
             GCLP_HICONSM = -34,
-            GCW_ATOM = -32
         }
 
         public static IntPtr GetClassLongPtr(IntPtr hWnd, ClassLongFlags flags)
@@ -264,9 +203,6 @@ namespace TaskSwitcher.Core
         public static extern IntPtr GetClassLongPtr64(IntPtr hWnd, ClassLongFlags flags);
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        public static extern uint RegisterWindowMessage(string lpString);
-
-        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern IntPtr SendMessageTimeout(
             IntPtr hWnd,
             uint Msg,
@@ -279,10 +215,7 @@ namespace TaskSwitcher.Core
         [Flags]
         public enum SendMessageTimeoutFlags : uint
         {
-            SMTO_NORMAL = 0x0,
-            SMTO_BLOCK = 0x1,
             SMTO_ABORTIFHUNG = 0x2,
-            SMTO_NOTIMEOUTIFNOTHUNG = 0x8
         }
 
         [DllImport("user32.dll")]

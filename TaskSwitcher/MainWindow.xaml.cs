@@ -776,7 +776,7 @@ MenuItem menuItem)
                     // Check for cancellation before starting work
                     cancellationToken.ThrowIfCancellationRequested();
                     
-                    return new WindowFilterer().Filter(context, query).ToList();
+                    return WindowFilterer.Filter(context, query).ToList();
                 }, cancellationToken);
                 
                 // Check for cancellation before formatting titles

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Specialized;
 using System.Configuration;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using System.Xml;
 
@@ -20,7 +21,7 @@ namespace TaskSwitcher
 
         private string _filePath =>
             Path.Combine(Path.GetDirectoryName(Application.ExecutablePath),
-                string.Format("{0}.settings", ApplicationName));
+                $"{ApplicationName}.settings");
 
         private XmlNode _localSettingsNode
         {
@@ -29,11 +30,9 @@ namespace TaskSwitcher
                 XmlNode settingsNode = GetSettingsNode(_localSettingsNodeName);
                 XmlNode machineNode = settingsNode.SelectSingleNode(Environment.MachineName.ToLowerInvariant());
 
-                if (machineNode == null)
-                {
-                    machineNode = _rootDocument.CreateElement(Environment.MachineName.ToLowerInvariant());
-                    settingsNode.AppendChild(machineNode);
-                }
+                if (machineNode != null) return machineNode;
+                machineNode = _rootDocument.CreateElement(Environment.MachineName.ToLowerInvariant());
+                settingsNode.AppendChild(machineNode);
 
                 return machineNode;
             }
@@ -47,22 +46,21 @@ namespace TaskSwitcher
         {
             get
             {
-                if (_xmlDocument == null)
+                if (_xmlDocument != null) return _xmlDocument;
+                try
                 {
-                    try
-                    {
-                        _xmlDocument = new XmlDocument();
-                        _xmlDocument.Load(_filePath);
-                    }
-                    catch (Exception)
-                    {
-                    }
-
-                    if (_xmlDocument.SelectSingleNode(_rootNodeName) != null)
-                        return _xmlDocument;
-
-                    _xmlDocument = GetBlankXmlDocument();
+                    _xmlDocument = new XmlDocument();
+                    _xmlDocument.Load(_filePath);
                 }
+                catch (Exception)
+                {
+                    // ignored
+                }
+
+                if (_xmlDocument.SelectSingleNode(_rootNodeName) != null)
+                    return _xmlDocument;
+
+                _xmlDocument = GetBlankXmlDocument();
 
                 return _xmlDocument;
             }
@@ -123,7 +121,7 @@ namespace TaskSwitcher
                 ? _globalSettingsNode
                 : _localSettingsNode;
 
-            XmlNode settingNode = targetNode.SelectSingleNode(string.Format("setting[@name='{0}']", propertyValue.Name));
+            XmlNode settingNode = targetNode.SelectSingleNode($"setting[@name='{propertyValue.Name}']");
 
             if (settingNode != null)
                 settingNode.InnerText = propertyValue.SerializedValue.ToString();
@@ -144,7 +142,7 @@ namespace TaskSwitcher
         private string GetValue(SettingsProperty property)
         {
             XmlNode targetNode = IsGlobal(property) ? _globalSettingsNode : _localSettingsNode;
-            XmlNode settingNode = targetNode.SelectSingleNode(string.Format("setting[@name='{0}']", property.Name));
+            XmlNode settingNode = targetNode.SelectSingleNode($"setting[@name='{property.Name}']");
 
             if (settingNode == null)
                 return property.DefaultValue != null ? property.DefaultValue.ToString() : string.Empty;
@@ -154,29 +152,21 @@ namespace TaskSwitcher
 
         private bool IsGlobal(SettingsProperty property)
         {
-            foreach (DictionaryEntry attribute in property.Attributes)
-            {
-                if ((Attribute) attribute.Value is SettingsManageabilityAttribute)
-                    return true;
-            }
-
-            return false;
+            return property.Attributes.Cast<DictionaryEntry>().Any(attribute => (Attribute)attribute.Value is SettingsManageabilityAttribute);
         }
 
         private XmlNode GetSettingsNode(string name)
         {
             XmlNode settingsNode = _rootNode.SelectSingleNode(name);
 
-            if (settingsNode == null)
-            {
-                settingsNode = _rootDocument.CreateElement(name);
-                _rootNode.AppendChild(settingsNode);
-            }
+            if (settingsNode != null) return settingsNode;
+            settingsNode = _rootDocument.CreateElement(name);
+            _rootNode.AppendChild(settingsNode);
 
             return settingsNode;
         }
 
-        public XmlDocument GetBlankXmlDocument()
+        private XmlDocument GetBlankXmlDocument()
         {
             XmlDocument blankXmlDocument = new();
             blankXmlDocument.AppendChild(blankXmlDocument.CreateXmlDeclaration("1.0", "utf-8", string.Empty));

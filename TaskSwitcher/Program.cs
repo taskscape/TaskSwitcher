@@ -3,6 +3,7 @@
  * http://www.TaskSwitcher.io/
  * Copyright 2009, 2010 James Sulak
  * Copyright 2014 Regin Larsen
+ * Copyright 2024 Maciej Zagozda
  * 
  * TaskSwitcher is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +20,6 @@
  */
 
 using System;
-using System.Configuration;
 using System.Diagnostics;
 using System.Reflection;
 using System.Security.Principal;
@@ -37,38 +37,36 @@ namespace TaskSwitcher
         {
             RunAsAdministratorIfConfigured();
 
-            using (Mutex mutex = new(false, mutex_id))
+            using Mutex mutex = new(false, mutex_id);
+            bool hasHandle = false;
+            try
             {
-                bool hasHandle = false;
                 try
                 {
-                    try
-                    {
-                        hasHandle = mutex.WaitOne(5000, false);
-                        if (hasHandle == false) return; //another instance exist
-                    }
-                    catch (AbandonedMutexException)
-                    {
-                        // Log the fact the mutex was abandoned in another process, it will still get aquired
-                    }
+                    hasHandle = mutex.WaitOne(5000, false);
+                    if (hasHandle == false) return; //another instance exist
+                }
+                catch (AbandonedMutexException)
+                {
+                    // Log the fact the mutex was abandoned in another process, it will still get aquired
+                }
 
 #if PORTABLE
                         MakePortable(Settings.Default);
 #endif
 
-                    MigrateUserSettings();
+                MigrateUserSettings();
 
-                    App app = new()
-                    {
-                        MainWindow = new MainWindow()
-                    };
-                    app.Run();
-                }
-                finally
+                App app = new()
                 {
-                    if (hasHandle)
-                        mutex.ReleaseMutex();
-                }
+                    MainWindow = new MainWindow()
+                };
+                app.Run();
+            }
+            finally
+            {
+                if (hasHandle)
+                    mutex.ReleaseMutex();
             }
         }
 
@@ -90,17 +88,6 @@ namespace TaskSwitcher
         private static bool RunAsAdminRequested()
         {
             return Settings.Default.RunAsAdmin;
-        }
-
-        private static void MakePortable(ApplicationSettingsBase settings)
-        {
-            PortableSettingsProvider portableSettingsProvider = new();
-            settings.Providers.Add(portableSettingsProvider);
-            foreach (SettingsProperty prop in settings.Properties)
-            {
-                prop.Provider = portableSettingsProvider;
-            }
-            settings.Reload();
         }
 
         private static void MigrateUserSettings()

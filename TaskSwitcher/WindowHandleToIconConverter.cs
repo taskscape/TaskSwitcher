@@ -11,16 +11,11 @@ namespace TaskSwitcher
 {
     public class WindowHandleToIconConverter : IValueConverter
     {
-        private readonly IconToBitmapImageConverter _iconToBitmapConverter;
-
-        public WindowHandleToIconConverter()
-        {
-            _iconToBitmapConverter = new IconToBitmapImageConverter();
-        }
+        private readonly IconToBitmapImageConverter _iconToBitmapConverter = new();
 
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            IntPtr handle = (IntPtr) value;
+            IntPtr handle = (IntPtr)value;
             string key = "IconImage-" + handle;
             string shortCacheKey = key + "-shortCache";
             string longCacheKey = key + "-longCache";
@@ -43,21 +38,18 @@ namespace TaskSwitcher
                 return cachedSetting;
             }
 
-            using (
-                RegistryKey registryKey =
-                    Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"))
+            using RegistryKey registryKey =
+                Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced");
+            object value = registryKey?.GetValue("TaskbarSmallIcons");
+            if (value == null)
             {
-                object value = registryKey?.GetValue("TaskbarSmallIcons");
-                if (value == null)
-                {
-                    return false;
-                }
-
-                int.TryParse(value.ToString(), out int intValue);
-                bool smallTaskbarIcons = intValue == 1;
-                MemoryCache.Default.Set(cacheKey, smallTaskbarIcons, DateTimeOffset.Now.AddMinutes(120));
-                return smallTaskbarIcons;
+                return false;
             }
+
+            int.TryParse(value.ToString(), out int intValue);
+            bool smallTaskbarIcons = intValue == 1;
+            MemoryCache.Default.Set(cacheKey, smallTaskbarIcons, DateTimeOffset.Now.AddMinutes(120));
+            return smallTaskbarIcons;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -9,7 +9,7 @@ namespace TaskSwitcher.Core
         // Threshold for window count above which parallel processing will be used
         private const int ParallelProcessingThreshold = 30;
 
-        public IEnumerable<FilterResult<T>> Filter<T>(WindowFilterContext<T> context, string query)
+        public static IEnumerable<FilterResult<T>> Filter<T>(WindowFilterContext<T> context, string query)
             where T : IWindowText
         {
             // Parse the query into filter texts
