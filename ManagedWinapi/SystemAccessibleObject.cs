@@ -24,7 +24,6 @@ using Accessibility;
 using ManagedWinapi.Windows;
 using System.Runtime.InteropServices;
 using System.Drawing;
-using System.Runtime.InteropServices.ComTypes;
 
 namespace ManagedWinapi.Accessibility
 {
@@ -38,12 +37,6 @@ namespace ManagedWinapi.Accessibility
     {
         private IAccessible iacc;
         private int childID;
-
-        /// <summary>
-        /// The IAccessible instance of this object (if <see cref="ChildID"/> is zero)
-        /// or its parent.
-        /// </summary>
-        public IAccessible IAccessible => iacc;
 
         /// <summary>
         /// The underlying child ID
@@ -75,18 +68,6 @@ namespace ManagedWinapi.Accessibility
         }
 
         /// <summary>
-        /// Gets an accessibility object for given screen coordinates.
-        /// </summary>
-        public static SystemAccessibleObject FromPoint(int x, int y)
-        {
-            IAccessible iacc;
-            object ci;
-            IntPtr result = AccessibleObjectFromPoint(new ManagedWinapi.Windows.POINT(x, y), out iacc, out ci);
-            if (result != IntPtr.Zero) throw new Exception("AccessibleObjectFromPoint returned " + result.ToInt32());
-            return new SystemAccessibleObject(iacc, (int)(ci ?? 0));
-        }
-
-        /// <summary>
         /// Gets an accessibility object for a given window.
         /// </summary>
         /// <param name="window">The window</param>
@@ -99,35 +80,11 @@ namespace ManagedWinapi.Accessibility
         }
 
         /// <summary>
-        /// Gets an accessibility object for the mouse cursor.
-        /// </summary>
-        public static SystemAccessibleObject MouseCursor => FromWindow(null, AccessibleObjectID.OBJID_CURSOR);
-
-        /// <summary>
-        /// Gets an accessibility object for the input caret, or
-        /// <b>null</b> if there is none.
-        /// </summary>
-        public static SystemAccessibleObject Caret
-        {
-            get
-            {
-                try
-                {
-                    return FromWindow(null, AccessibleObjectID.OBJID_CARET);
-                }
-                catch (COMException)
-                {
-                    return null;
-                }
-            }
-        }
-
-        /// <summary>
         /// Convert a role number to a localized string.
         /// </summary>
-        public static string RoleToString(int roleNumber)
+        private static string RoleToString(int roleNumber)
         {
-            StringBuilder sb = new StringBuilder(1024);
+            StringBuilder sb = new(1024);
             uint result = GetRoleText((uint)roleNumber, sb, 1024);
             if (result == 0) throw new Exception("Invalid role number");
             return sb.ToString();
@@ -137,12 +94,12 @@ namespace ManagedWinapi.Accessibility
         /// Convert a state number (which may include more than one state bit)
         /// to a localized string.
         /// </summary>
-        public static String StateToString(int stateNumber)
+        private static string StateToString(int stateNumber)
         {
             if (stateNumber == 0) return "None";
             int lowBit = stateNumber & -stateNumber;
             int restBits = stateNumber - lowBit;
-            String s1 = StateBitToString(lowBit);
+            string s1 = StateBitToString(lowBit);
             if (restBits == 0) return s1;
             return StateToString(restBits) + ", " + s1;
         }
@@ -150,9 +107,9 @@ namespace ManagedWinapi.Accessibility
         /// <summary>
         /// Convert a single state bit to a localized string.
         /// </summary>
-        public static string StateBitToString(int stateBit)
+        private static string StateBitToString(int stateBit)
         {
-            StringBuilder sb = new StringBuilder(1024);
+            StringBuilder sb = new(1024);
             uint result = GetStateText((uint)stateBit, sb, 1024);
             if (result == 0) throw new Exception("Invalid role number");
             return sb.ToString();
@@ -172,7 +129,7 @@ namespace ManagedWinapi.Accessibility
         /// The role of this accessible object. This can either be an int
         /// (for a predefined role) or a string.
         /// </summary>
-        public object Role => iacc.get_accRole(childID);
+        private object Role => iacc.get_accRole(childID);
 
         /// <summary>
         /// The role of this accessible object, as an integer. If this role
@@ -187,33 +144,25 @@ namespace ManagedWinapi.Accessibility
                 {
                     return (int)role;
                 }
-                else
-                {
-                    return -1;
-                }
+
+                return -1;
             }
         }
 
         /// <summary>
         /// The role of this accessible object, as a localized string.
         /// </summary>
-        public string RoleString
+        private string RoleString
         {
             get
             {
                 object role = Role;
-                if (role is int)
+                return role switch
                 {
-                    return RoleToString((int)role);
-                }
-                else if (role is string)
-                {
-                    return (string)role;
-                }
-                else
-                {
-                    return role.ToString();
-                }
+                    int i => RoleToString(i),
+                    string s => s,
+                    _ => role.ToString()
+                };
             }
         }
 
@@ -222,7 +171,7 @@ namespace ManagedWinapi.Accessibility
         /// is the smallest rectangle that includes the whole object, but not
         /// every point in the rectangle must be part of the object.
         /// </summary>
-        public Rectangle Location
+        private Rectangle Location
         {
             get
             {
@@ -308,63 +257,9 @@ namespace ManagedWinapi.Accessibility
             iacc.accDoDefaultAction(ChildID);
         }
 
-        /// <summary>
-        /// Get all objects of this accessible object that are selected.
-        /// </summary>
-        public SystemAccessibleObject[] SelectedObjects
-        {
-            get
-            {
-                if (childID != 0) return [];
-                object sel;
-                try
-                {
-                    sel = iacc.accSelection;
-                }
-                catch (NotImplementedException)
-                {
-                    return [];
-                }
-                catch (COMException)
-                {
-                    return [];
-                }
-                
-                if (sel == null) return [];
-                if (sel is IEnumVARIANT)
-                {
-                    IEnumVARIANT e = (IEnumVARIANT)sel;
-                    e.Reset();
-                    List<SystemAccessibleObject> retval = [];
-                    object[] tmp = new object[1];
-                    while (e.Next(1, tmp, IntPtr.Zero) == 0)
-                    {
-                        if (tmp[0] is int && (int)tmp[0] < 0) break;
-                        retval.Add(ObjectToSAO(tmp[0]));
-                    }
-                    return retval.ToArray();
-                }
-                else
-                {
-                    if (sel is int && (int)sel < 0)
-                    {
-                        return [];
-                    }
-                    return [ObjectToSAO(sel)];
-                }
-            }
-        }
-
         private SystemAccessibleObject ObjectToSAO(object obj)
         {
-            if (obj is int)
-            {
-                return new SystemAccessibleObject(iacc, (int)obj);
-            }
-            else
-            {
-                return new SystemAccessibleObject((IAccessible)obj, 0);
-            }
+            return obj is int ? new SystemAccessibleObject(iacc, (int)obj) : new SystemAccessibleObject((IAccessible)obj, 0);
         }
 
         /// <summary>
@@ -394,21 +289,17 @@ namespace ManagedWinapi.Accessibility
                 object[] children = new object[cs * 2];
 
                 uint result = AccessibleChildren(iacc, 0, cs * 2, children, out csReal);
-                if (result != 0 && result != 1)
-                    return [];
-                if (csReal == 1 && children[0] is int && (int)children[0] < 0)
+                if (result != 0 && result != 1 || csReal == 1 && children[0] is int && (int)children[0] < 0)
                     return [];
                 List<SystemAccessibleObject> values = [];
-                for (int i = 0; i < children.Length; i++)
+                foreach (object t in children)
                 {
-                    if (children[i] != null)
+                    if (t == null) continue;
+                    try
                     {
-                        try
-                        {
-                            values.Add(ObjectToSAO(children[i]));
-                        }
-                        catch (InvalidCastException) { }
+                        values.Add(ObjectToSAO(t));
                     }
+                    catch (InvalidCastException) { }
                 }
                 return values.ToArray();
             }
@@ -417,7 +308,7 @@ namespace ManagedWinapi.Accessibility
         #region Equals and HashCode
 
         ///
-        public override bool Equals(System.Object obj)
+        public override bool Equals(object obj)
         {
             if (obj == null)
             {
@@ -442,8 +333,8 @@ namespace ManagedWinapi.Accessibility
             if (ia1.Equals(ia2)) return true;
             if (Marshal.GetIUnknownForObject(ia1) == Marshal.GetIUnknownForObject(ia2)) return true;
             if (ia1.accChildCount != ia2.accChildCount) return false;
-            SystemAccessibleObject sa1 = new SystemAccessibleObject(ia1, 0);
-            SystemAccessibleObject sa2 = new SystemAccessibleObject(ia2, 0);
+            SystemAccessibleObject sa1 = new(ia1, 0);
+            SystemAccessibleObject sa2 = new(ia2, 0);
             if (sa1.Window.HWnd != sa2.Window.HWnd) return false;
             if (sa1.Location != sa2.Location) return false;
             if (sa1.DefaultAction != sa2.DefaultAction) return false;
@@ -471,7 +362,7 @@ namespace ManagedWinapi.Accessibility
         /// </summary>
         public static bool operator ==(SystemAccessibleObject a, SystemAccessibleObject b)
         {
-            if (System.Object.ReferenceEquals(a, b))
+            if (ReferenceEquals(a, b))
             {
                 return true;
             }

@@ -13,7 +13,7 @@ namespace TaskSwitcher.Core
 
     public class WindowIconFinder
     {
-        private static readonly MemoryCache IconCache = new MemoryCache("WindowIcons");
+        private static readonly MemoryCache IconCache = new("WindowIcons");
         
         public Icon Find(AppWindow window, WindowIconSize size)
         {
@@ -33,7 +33,7 @@ namespace TaskSwitcher.Core
             if (icon != null)
             {
                 // Cache for 10 minutes with a sliding expiration policy
-                CacheItemPolicy policy = new CacheItemPolicy
+                CacheItemPolicy policy = new()
                 {
                     SlidingExpiration = TimeSpan.FromMinutes(10)
                 };

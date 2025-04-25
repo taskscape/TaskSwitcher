@@ -149,7 +149,7 @@ namespace ManagedWinapi
             if (alt) s = GetKeyName(Keys.Menu) + " + " + s;
             if (ctrl) s = GetKeyName(Keys.ControlKey) + " + " + s;
             base.Text = s;
-            base.SelectionStart = s.Length;
+            SelectionStart = s.Length;
         }
 
         private static string GetKeyName(Keys key)
@@ -157,7 +157,7 @@ namespace ManagedWinapi
             return new KeyboardKey(key).KeyName;
         }
 
-        private bool currWindowsKey = false;
+        private bool currWindowsKey;
         private void ShortcutBox_KeyDown(object sender, KeyEventArgs e)
         {
             e.Handled = true;

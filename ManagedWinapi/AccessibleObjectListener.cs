@@ -41,8 +41,8 @@ namespace ManagedWinapi.Accessibility
         private AccessibleEventType max = AccessibleEventType.EVENT_MAX;
         private WinEventDelegate internalDelegate;
         private GCHandle gch;
-        private UInt32 processId = 0;
-        private UInt32 threadId = 0;
+        private UInt32 processId;
+        private UInt32 threadId;
 
         /// <summary>
         /// Initializes a new instance of this class with the specified container.
@@ -72,10 +72,7 @@ namespace ManagedWinapi.Accessibility
         /// </summary>
         public bool Enabled
         {
-            get
-            {
-                return enabled;
-            }
+            get => enabled;
             set
             {
                 enabled = value;
@@ -92,7 +89,7 @@ namespace ManagedWinapi.Accessibility
         /// </summary>
         public AccessibleEventType MinimalEventType
         {
-            get { return min; }
+            get => min;
             set { min = value; updateListener(); }
         }
 
@@ -105,7 +102,7 @@ namespace ManagedWinapi.Accessibility
         /// </summary>
         public AccessibleEventType MaximalEventType
         {
-            get { return max; }
+            get => max;
             set { max = value; updateListener(); }
         }
 
@@ -120,7 +117,7 @@ namespace ManagedWinapi.Accessibility
         /// </summary>
         public UInt32 ProcessId
         {
-            get { return processId; }
+            get => processId;
             set { processId = value; updateListener(); }
         }
 
@@ -135,7 +132,7 @@ namespace ManagedWinapi.Accessibility
         /// </summary> 
         public UInt32 ThreadId
         {
-            get { return threadId; }
+            get => threadId;
             set { threadId = value; updateListener(); }
         }
 
@@ -171,7 +168,7 @@ namespace ManagedWinapi.Accessibility
             IntPtr hwnd, uint idObject, uint idChild, uint dwEventThread, uint dwmsEventTime)
         {
             if (hWinEventHook != handle) return;
-            AccessibleEventArgs aea = new AccessibleEventArgs(eventType, hwnd, idObject, idChild, dwEventThread, dwmsEventTime);
+            AccessibleEventArgs aea = new(eventType, hwnd, idObject, idChild, dwEventThread, dwmsEventTime);
             if (EventOccurred != null)
                 EventOccurred(this, aea);
         }
@@ -193,7 +190,7 @@ namespace ManagedWinapi.Accessibility
            uint idThread, uint dwFlags);
 
         [DllImport("user32.dll")]
-        static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+        private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
         private delegate void WinEventDelegate(IntPtr hWinEventHook, AccessibleEventType eventType,
             IntPtr hwnd, uint idObject, uint idChild, uint dwEventThread, uint dwmsEventTime);
@@ -214,85 +211,54 @@ namespace ManagedWinapi.Accessibility
     /// </summary>
     public class AccessibleEventArgs : EventArgs
     {
-        private AccessibleEventType eventType;
-        private IntPtr hWnd;
-        private uint idObject;
-        private uint idChild;
-        private uint dwEventThread;
-        private uint dwmsEventTime;
-
         /// <summary>
         /// Initializes a new instance of the AccessibleEventArgs class.
         /// </summary>
         public AccessibleEventArgs(AccessibleEventType eventType,
             IntPtr hwnd, uint idObject, uint idChild, uint dwEventThread, uint dwmsEventTime)
         {
-            this.eventType = eventType;
-            this.hWnd = hwnd;
-            this.idObject = idObject;
-            this.idChild = idChild;
-            this.dwEventThread = dwEventThread;
-            this.dwmsEventTime = dwmsEventTime;
+            this.EventType = eventType;
+            HWnd = hwnd;
+            this.ObjectID = idObject;
+            this.ChildID = idChild;
+            this.Thread = dwEventThread;
+            this.Time = dwmsEventTime;
         }
 
         /// <summary>
         /// Type of this accessible event
         /// </summary>
-        public AccessibleEventType EventType
-        {
-            get { return eventType; }
-        }
+        public AccessibleEventType EventType { get; }
 
         /// <summary>
         /// Handle of the affected window, if any.
         /// </summary>
-        public IntPtr HWnd
-        {
-            get { return hWnd; }
-        }
+        public IntPtr HWnd { get; }
 
         /// <summary>
         /// Object ID.
         /// </summary>
-        public uint ObjectID
-        {
-            get { return idObject; }
-        }
+        public uint ObjectID { get; }
 
         /// <summary>
         /// Child ID.
         /// </summary>
-        public uint ChildID
-        {
-            get { return idChild; }
-        }
+        public uint ChildID { get; }
 
         /// <summary>
         /// The thread that generated this event.
         /// </summary>
-        public uint Thread
-        {
-            get { return dwEventThread; }
-        }
+        public uint Thread { get; }
 
         /// <summary>
         /// Time in milliseconds when the event was generated.
         /// </summary>
-        public uint Time
-        {
-            get { return dwmsEventTime; }
-        }
+        public uint Time { get; }
 
         /// <summary>
         /// The accessible object related to this event.
         /// </summary>
-        public SystemAccessibleObject AccessibleObject
-        {
-            get
-            {
-                return AccessibleEventListener.GetAccessibleObject(this);
-            }
-        }
+        public SystemAccessibleObject AccessibleObject => AccessibleEventListener.GetAccessibleObject(this);
     }
 
     /// <summary>

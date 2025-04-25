@@ -12,7 +12,6 @@ namespace ManagedWinapi.Hooks
     /// </summary>
     public class Hook : Component
     {
-        private HookType type;
         internal bool hooked;
         private IntPtr hHook;
         private bool wrapCallback, global;
@@ -36,17 +35,17 @@ namespace ManagedWinapi.Hooks
         public Hook(HookType type, HookCallback callback, bool wrapCallback, bool global)
             : this(type, wrapCallback, global)
         {
-            this.Callback += callback;
+            Callback += callback;
             StartHook();
         }
 
         /// <summary>
         /// Creates a new hook.
         /// </summary>
-        public Hook(HookType type, bool wrapCallback, bool global)
+        protected Hook(HookType type, bool wrapCallback, bool global)
             : this()
         {
-            this.type = type;
+            Type = type;
             this.wrapCallback = wrapCallback;
             this.global = global;
         }
@@ -65,7 +64,7 @@ namespace ManagedWinapi.Hooks
         /// </summary>
         public Hook()
         {
-            managedDelegate = new HookProc(InternalCallback);
+            managedDelegate = InternalCallback;
         }
 
         /// <summary>
@@ -75,19 +74,12 @@ namespace ManagedWinapi.Hooks
         /// <summary>
         /// The type of the hook.
         /// </summary>
-        public HookType Type
-        {
-            get { return type; }
-            set { type = value; }
-        }
+        private HookType Type { get; set; }
 
         /// <summary>
         /// Whether this hook has been started.
         /// </summary>
-        public bool Hooked
-        {
-            get { return hooked; }
-        }
+        protected bool Hooked => hooked;
 
         /// <summary>
         /// Hooks the hook.
@@ -100,17 +92,17 @@ namespace ManagedWinapi.Hooks
             {
                 wrappedDelegate = AllocHookWrapper(delegt);
                 hWrapperInstance = LoadLibrary("ManagedWinapiNativeHelper.dll");
-                hHook = SetWindowsHookEx(type, wrappedDelegate, hWrapperInstance, 0);
+                hHook = SetWindowsHookEx(Type, wrappedDelegate, hWrapperInstance, 0);
             }
             else if (global)
             {
                 // http://stackoverflow.com/a/17898148/198065
                 IntPtr moduleHandle = LoadLibrary("user32.dll");
-                hHook = SetWindowsHookEx(type, delegt, moduleHandle, 0);
+                hHook = SetWindowsHookEx(Type, delegt, moduleHandle, 0);
             }
             else
             {
-                hHook = SetWindowsHookEx(type, delegt, IntPtr.Zero, getThreadID());
+                hHook = SetWindowsHookEx(Type, delegt, IntPtr.Zero, getThreadID());
             }
 
             if (hHook == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
@@ -133,8 +125,7 @@ namespace ManagedWinapi.Hooks
             if (!UnhookWindowsHookEx(hHook)) throw new Win32Exception(Marshal.GetLastWin32Error());
             if (wrapCallback)
             {
-                if (!FreeHookWrapper(wrappedDelegate)) throw new Win32Exception();
-                if (!FreeLibrary(hWrapperInstance)) throw new Win32Exception();
+                if (!FreeHookWrapper(wrappedDelegate) || !FreeLibrary(hWrapperInstance)) throw new Win32Exception();
             }
 
             hooked = false;
@@ -221,35 +212,19 @@ namespace ManagedWinapi.Hooks
         public delegate void MessageCallback(Message msg);
 
         /// <summary>
-        /// Creates a local message hook and hooks it.
-        /// </summary>
-        /// <param name="callback"></param>
-        public LocalMessageHook(MessageCallback callback)
-            : this()
-        {
-            this.MessageOccurred = callback;
-            StartHook();
-        }
-
-        /// <summary>
         /// Creates a local message hook.
         /// </summary>
         public LocalMessageHook()
             : base(HookType.WH_GETMESSAGE, false, false)
         {
-            base.Callback += MessageHookCallback;
+            Callback += MessageHookCallback;
         }
 
         private int MessageHookCallback(int code, IntPtr lParam, IntPtr wParam, ref bool callNext)
         {
-            if (code == HC_ACTION)
-            {
-                Message msg = (Message) Marshal.PtrToStructure(wParam, typeof(Message));
-                if (MessageOccurred != null)
-                {
-                    MessageOccurred(msg);
-                }
-            }
+            if (code != HC_ACTION) return 0;
+            Message msg = (Message) Marshal.PtrToStructure(wParam, typeof(Message));
+            MessageOccurred?.Invoke(msg);
 
             return 0;
         }
@@ -258,46 +233,13 @@ namespace ManagedWinapi.Hooks
     /// <summary>
     /// Hook Types. See the documentation of SetWindowsHookEx for reference.
     /// </summary>
-    public enum HookType : int
+    public enum HookType
     {
-        ///
-        WH_JOURNALRECORD = 0,
-
         ///
         WH_JOURNALPLAYBACK = 1,
 
         ///
-        WH_KEYBOARD = 2,
-
-        ///
         WH_GETMESSAGE = 3,
-
-        ///
-        WH_CALLWNDPROC = 4,
-
-        ///
-        WH_CBT = 5,
-
-        ///
-        WH_SYSMSGFILTER = 6,
-
-        ///
-        WH_MOUSE = 7,
-
-        ///
-        WH_HARDWARE = 8,
-
-        ///
-        WH_DEBUG = 9,
-
-        ///
-        WH_SHELL = 10,
-
-        ///
-        WH_FOREGROUNDIDLE = 11,
-
-        ///
-        WH_CALLWNDPROCRET = 12,
 
         ///
         WH_KEYBOARD_LL = 13,

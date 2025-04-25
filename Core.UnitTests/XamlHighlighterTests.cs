@@ -9,7 +9,7 @@ namespace TaskSwitcher.Core.UnitTests
         [Test]
         public void DoesItWork()
         {
-            StringPart input = new StringPart("test > test-1", true);
+            StringPart input = new("test > test-1", true);
             string output = new XamlHighlighter().Highlight(new[] {input, new StringPart("test"),});
             Assert.That(output, Is.EqualTo("<Bold>test &gt; test-1</Bold>test"));
         }

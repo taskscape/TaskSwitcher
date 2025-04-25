@@ -18,7 +18,7 @@ namespace TaskSwitcher.Core.Matchers
                 return NonMatchResult(input);
             }
 
-            MatchResult matchResult = new MatchResult();
+            MatchResult matchResult = new();
             if (match.Groups[1].Length > 0)
             {
                 matchResult.StringParts.Add(new StringPart(match.Groups[1].Value));
@@ -42,7 +42,7 @@ namespace TaskSwitcher.Core.Matchers
 
         private static MatchResult NonMatchResult(string input)
         {
-            MatchResult matchResult = new MatchResult();
+            MatchResult matchResult = new();
             if (input != null)
             {
                 matchResult.StringParts.Add(new StringPart(input));

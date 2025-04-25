@@ -32,16 +32,6 @@ namespace ManagedWinapi.Audio.Mixer
         public int Id => ctrl.dwControlID;
 
         /// <summary>
-        /// The short name of this control.
-        /// </summary>
-        public string ShortName => ctrl.szShortName;
-
-        /// <summary>
-        /// The long name of this control.
-        /// </summary>
-        public string LongName => ctrl.szName;
-
-        /// <summary>
         /// The class of this control. For example FADER or SWITCH.
         /// </summary>
         public MixerControlClass Class => (MixerControlClass) (ctrl.dwControlType & MIXERCONTROL_CT_CLASS_MASK);
@@ -81,25 +71,6 @@ namespace ManagedWinapi.Audio.Mixer
         public int MultipleValuesCount => IsMultiple ? ctrl.cMultipleItems : 1;
 
         /// <summary>
-        /// The number of raw values that have to be get or set. This
-        /// value is provided as a convenience; it can be computed from
-        /// MultipleValuesCount, IsUniform and ChannelCount.
-        /// </summary>
-        protected int RawValueMultiplicity
-        {
-            get
-            {
-                int val = MultipleValuesCount;
-                if (!IsUniform)
-                {
-                    val *= ChannelCount;
-                }
-
-                return val;
-            }
-        }
-
-        /// <summary>
         /// The line this control belongs to.
         /// </summary>
         public MixerLine Line => ml;
@@ -117,7 +88,7 @@ namespace ManagedWinapi.Audio.Mixer
             if (mxsize != 148) throw new Exception("" + mxsize);
             //mxsize = 148;
 
-            MIXERLINECONTROLS mlc = new MIXERLINECONTROLS();
+            MIXERLINECONTROLS mlc = new();
             mlc.cbStruct = Marshal.SizeOf(mlc);
             mlc.cControls = controlCount;
             mlc.dwLineID = line.Id;
@@ -149,19 +120,20 @@ namespace ManagedWinapi.Audio.Mixer
 
         private static MixerControl GetControl(Mixer mx, MixerLine ml, MIXERCONTROL mc)
         {
-            MixerControl result = new MixerControl(mx, ml, mc);
-            if (result.Class == MixerControlClass.FADER && ((uint) result.ControlType & MIXERCONTROL_CT_UNITS_MASK) ==
-                (uint) MixerControlType.MIXERCONTROL_CT_UNITS_UNSIGNED)
+            MixerControl result = new(mx, ml, mc);
+            switch (result.Class)
             {
-                result = new FaderMixerControl(mx, ml, mc);
-            }
-            else if (result.Class == MixerControlClass.SWITCH &&
-                     ((uint) result.ControlType & MIXERCONTROL_CT_SUBCLASS_MASK) ==
-                     (uint) MixerControlType.MIXERCONTROL_CT_SC_SWITCH_BOOLEAN &&
-                     ((uint) result.ControlType & MIXERCONTROL_CT_UNITS_MASK) ==
-                     (uint) MixerControlType.MIXERCONTROL_CT_UNITS_BOOLEAN)
-            {
-                result = new BooleanMixerControl(mx, ml, mc);
+                case MixerControlClass.FADER when ((uint) result.ControlType & MIXERCONTROL_CT_UNITS_MASK) ==
+                                                  (uint) MixerControlType.MIXERCONTROL_CT_UNITS_UNSIGNED:
+                    result = new FaderMixerControl(mx, ml, mc);
+                    break;
+                case MixerControlClass.SWITCH when
+                    ((uint) result.ControlType & MIXERCONTROL_CT_SUBCLASS_MASK) ==
+                    (uint) MixerControlType.MIXERCONTROL_CT_SC_SWITCH_BOOLEAN &&
+                    ((uint) result.ControlType & MIXERCONTROL_CT_UNITS_MASK) ==
+                    (uint) MixerControlType.MIXERCONTROL_CT_UNITS_BOOLEAN:
+                    result = new BooleanMixerControl(mx, ml, mc);
+                    break;
             }
 
             return result;
@@ -169,8 +141,7 @@ namespace ManagedWinapi.Audio.Mixer
 
         internal void OnChanged()
         {
-            if (Changed != null)
-                Changed(this, EventArgs.Empty);
+            Changed?.Invoke(this, EventArgs.Empty);
         }
 
         #region PInvoke Declarations
@@ -259,77 +230,8 @@ namespace ManagedWinapi.Audio.Mixer
     /// </summary>
     public class FaderMixerControl : MixerControl
     {
-        internal FaderMixerControl(Mixer mx, MixerLine ml, MixerControl.MIXERCONTROL mc) : base(mx, ml, mc)
+        internal FaderMixerControl(Mixer mx, MixerLine ml, MIXERCONTROL mc) : base(mx, ml, mc)
         {
-        }
-
-        /// <summary>
-        /// The minimum value of this fader.
-        /// </summary>
-        public int Minimum => ctrl.lMinimum;
-
-        /// <summary>
-        /// The maximum value of this fader.
-        /// </summary>
-        public int Maximum => ctrl.lMaximum;
-
-        /// <summary>
-        /// Used to get or set the values of this fader.
-        /// </summary>
-        public int[] Values
-        {
-            get
-            {
-                int[] result = new int[RawValueMultiplicity];
-                MIXERCONTROLDETAILS mcd = new MIXERCONTROLDETAILS();
-                MIXERCONTROLDETAILS_UNSIGNED mcdu = new MIXERCONTROLDETAILS_UNSIGNED();
-                mcd.cbStruct = Marshal.SizeOf(mcd);
-                mcd.dwControlID = ctrl.dwControlID;
-                mcd.cChannels = ChannelCount;
-                mcd.cMultipleItems = ctrl.cMultipleItems;
-                mcd.paDetails = Marshal.AllocCoTaskMem(Marshal.SizeOf(mcdu) * result.Length);
-                mcd.cbDetails = Marshal.SizeOf(mcdu);
-                int err;
-                if ((err = mixerGetControlDetailsA(mx.Handle, ref mcd, 0)) != 0)
-                {
-                    throw new Win32Exception("Error #" + err + " calling mixerGetControlDetails()");
-                }
-
-                for (int i = 0; i < result.Length; i++)
-                {
-                    mcdu = (MIXERCONTROLDETAILS_UNSIGNED) Marshal.PtrToStructure(
-                        new IntPtr(mcd.paDetails.ToInt64() + Marshal.SizeOf(mcdu) * i),
-                        typeof(MIXERCONTROLDETAILS_UNSIGNED))!;
-                    result[i] = mcdu.dwValue;
-                }
-
-                return result;
-            }
-            set
-            {
-                if (value.Length != RawValueMultiplicity)
-                    throw new ArgumentException("Incorrect dimension");
-
-                MIXERCONTROLDETAILS mcd = new MIXERCONTROLDETAILS();
-                MIXERCONTROLDETAILS_UNSIGNED mcdu = new MIXERCONTROLDETAILS_UNSIGNED();
-                mcd.cbStruct = Marshal.SizeOf(mcd);
-                mcd.dwControlID = ctrl.dwControlID;
-                mcd.cChannels = ChannelCount;
-                mcd.cMultipleItems = ctrl.cMultipleItems;
-                mcd.paDetails = Marshal.AllocCoTaskMem(Marshal.SizeOf(mcdu) * value.Length);
-                mcd.cbDetails = Marshal.SizeOf(mcdu);
-                for (int i = 0; i < value.Length; i++)
-                {
-                    mcdu.dwValue = value[i];
-                    Marshal.StructureToPtr(mcdu, new IntPtr(mcd.paDetails.ToInt64() + Marshal.SizeOf(mcdu) * i), false);
-                }
-
-                int err;
-                if ((err = mixerSetControlDetails(mx.Handle, ref mcd, 0)) != 0)
-                {
-                    throw new Win32Exception("Error #" + err + " calling mixerGetControlDetails()");
-                }
-            }
         }
     }
 
@@ -339,7 +241,7 @@ namespace ManagedWinapi.Audio.Mixer
     /// </summary>
     public class BooleanMixerControl : MixerControl
     {
-        internal BooleanMixerControl(Mixer mx, MixerLine ml, MixerControl.MIXERCONTROL mc) : base(mx, ml, mc)
+        internal BooleanMixerControl(Mixer mx, MixerLine ml, MIXERCONTROL mc) : base(mx, ml, mc)
         {
         }
     }
@@ -509,29 +411,7 @@ namespace ManagedWinapi.Audio.Mixer
         MIXERCONTROL_CONTROLTYPE_STEREOENH = (MIXERCONTROL_CONTROLTYPE_BOOLEAN + 5),
 
         ///
-        MIXERCONTROL_CONTROLTYPE_BUTTON =
-            (MixerControlClass.SWITCH | MIXERCONTROL_CT_SC_SWITCH_BUTTON | MIXERCONTROL_CT_UNITS_BOOLEAN),
-
-        ///
-        MIXERCONTROL_CONTROLTYPE_DECIBELS = (MixerControlClass.NUMBER | MIXERCONTROL_CT_UNITS_DECIBELS),
-
-        ///
-        MIXERCONTROL_CONTROLTYPE_SIGNED = (MixerControlClass.NUMBER | MIXERCONTROL_CT_UNITS_SIGNED),
-
-        ///
-        MIXERCONTROL_CONTROLTYPE_UNSIGNED = (MixerControlClass.NUMBER | MIXERCONTROL_CT_UNITS_UNSIGNED),
-
-        ///
-        MIXERCONTROL_CONTROLTYPE_PERCENT = (MixerControlClass.NUMBER | MIXERCONTROL_CT_UNITS_PERCENT),
-
-        ///
         MIXERCONTROL_CONTROLTYPE_SLIDER = (MixerControlClass.SLIDER | MIXERCONTROL_CT_UNITS_SIGNED),
-
-        ///
-        MIXERCONTROL_CONTROLTYPE_PAN = (MixerControlClass.SLIDER + 1),
-
-        ///
-        MIXERCONTROL_CONTROLTYPE_QSOUNDPAN = (MIXERCONTROL_CONTROLTYPE_SLIDER + 2),
 
         ///
         MIXERCONTROL_CONTROLTYPE_FADER = (MixerControlClass.FADER | MIXERCONTROL_CT_UNITS_UNSIGNED),

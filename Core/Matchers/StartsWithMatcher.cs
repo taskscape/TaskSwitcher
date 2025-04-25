@@ -4,20 +4,14 @@
     {
         public MatchResult Evaluate(string input, string pattern)
         {
-            MatchResult matchResult = new MatchResult();
+            MatchResult matchResult = new();
 
             if (input == null)
             {
                 return matchResult;
             }
 
-            if (pattern == null)
-            {
-                matchResult.StringParts.Add(new StringPart(input));
-                return matchResult;
-            }
-
-            if (!InputStartsWithPattern(input, pattern))
+            if (pattern == null || !InputStartsWithPattern(input, pattern))
             {
                 matchResult.StringParts.Add(new StringPart(input));
                 return matchResult;

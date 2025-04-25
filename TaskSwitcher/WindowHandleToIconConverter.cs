@@ -25,7 +25,7 @@ namespace TaskSwitcher
             string shortCacheKey = key + "-shortCache";
             string longCacheKey = key + "-longCache";
             if (MemoryCache.Default.Get(shortCacheKey) is BitmapImage iconImage) return iconImage;
-            AppWindow window = new AppWindow(handle);
+            AppWindow window = new(handle);
             Icon icon = ShouldUseSmallTaskbarIcons() ? window.SmallWindowIcon : window.LargeWindowIcon;
             iconImage = _iconToBitmapConverter.Convert(icon) ?? new BitmapImage();
             MemoryCache.Default.Set(shortCacheKey, iconImage, DateTimeOffset.Now.AddSeconds(5));

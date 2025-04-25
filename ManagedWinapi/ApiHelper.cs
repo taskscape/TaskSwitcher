@@ -29,13 +29,12 @@ namespace ManagedWinapi
         /// This exception uses the last Win32 error code as error message.
         /// </summary>
         /// <param name="returnValue">The return value to test.</param>
-        internal static IntPtr FailIfZero(IntPtr returnValue)
+        internal static void FailIfZero(IntPtr returnValue)
         {
             if (returnValue == IntPtr.Zero)
             {
                 throw new Win32Exception(Marshal.GetLastWin32Error());
             }
-            return returnValue;
         }
     }
 }

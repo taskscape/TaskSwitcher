@@ -11,44 +11,36 @@ namespace ManagedWinapi.Windows.Contents
     /// </summary>
     public class ListContent : WindowContent
     {
-        string type, current;
-        string[] values;
-        int selected;
+        private string[] values;
 
         internal ListContent(string type, int selected, string current, string[] values)
         {
-            this.type = type;
-            this.selected = selected;
-            this.current = current;
+            this.ComponentType = type;
+            this.SelectedIndex = selected;
+            this.SelectedValue = current;
             this.values = values;
         }
 
         ///
-        public string ComponentType
-        {
-            get { return type; }
-        }
+        public string ComponentType { get; }
 
         ///
-        public string ShortDescription
-        {
-            get { return (current == null ? "" : current + " ") + "<" + type + ">"; }
-        }
+        public string ShortDescription => (SelectedValue == null ? "" : SelectedValue + " ") + "<" + ComponentType + ">";
 
         ///
         public string LongDescription
         {
             get
             {
-                StringBuilder sb = new StringBuilder();
-                sb.Append("<" + type + ">");
-                if (current != null)
-                    sb.Append(" (selected value: \"" + current + "\")");
+                StringBuilder sb = new();
+                sb.Append("<" + ComponentType + ">");
+                if (SelectedValue != null)
+                    sb.Append(" (selected value: \"" + SelectedValue + "\")");
                 sb.Append("\nAll values:\n");
                 int idx = 0;
                 foreach (string v in values)
                 {
-                    if (selected == idx) sb.Append("*");
+                    if (SelectedIndex == idx) sb.Append("*");
                     sb.Append("\t" + v + "\n");
                     idx++;
                 }
@@ -61,9 +53,9 @@ namespace ManagedWinapi.Windows.Contents
         {
             get
             {
-                Dictionary<string, string> result = new Dictionary<string, string>();
-                result.Add("SelectedValue", current);
-                result.Add("SelectedIndex", "" + selected);
+                Dictionary<string, string> result = new();
+                result.Add("SelectedValue", SelectedValue);
+                result.Add("SelectedIndex", "" + SelectedIndex);
                 result.Add("Count", "" + values.Length);
                 for (int i = 0; i < values.Length; i++)
                 {
@@ -77,46 +69,25 @@ namespace ManagedWinapi.Windows.Contents
         /// The value in this list or combo box that is selected.
         /// In a combo box, this value may not be in the list.
         /// </summary>
-        public String SelectedValue
-        {
-            get { return current; }
-        }
+        public String SelectedValue { get; }
 
         /// <summary>
         /// The index of the selected item, or -1 if no item
         /// is selected.
         /// </summary>
-        public int SelectedIndex
-        {
-            get
-            {
-                return selected;
-            }
-        }
+        public int SelectedIndex { get; }
 
         /// <summary>
         /// The number of items in this list.
         /// </summary>
-        public int Count
-        {
-            get
-            {
-                return values.Length;
-            }
-        }
+        public int Count => values.Length;
 
         /// <summary>
         /// Accesses individual list items.
         /// </summary>
         /// <param name="index">Index of list item.</param>
         /// <returns>The list item.</returns>
-        public string this[int index]
-        {
-            get
-            {
-                return values[index];
-            }
-        }
+        public string this[int index] => values[index];
 
         internal static string Repeat(char ch, int count)
         {
@@ -212,7 +183,7 @@ namespace ManagedWinapi.Windows.Contents
                         }
                     }
                 }
-                List<string> values = new List<string>();
+                List<string> values = new();
                 for (int i = 0; i < cs; i++)
                 {
                     if (o.Children[i].RoleIndex == 34)
@@ -227,7 +198,7 @@ namespace ManagedWinapi.Windows.Contents
                                 else
                                 {
                                     string tmpCols = "; " + cols;
-                                    List<string> usedHdr = new List<string>();
+                                    List<string> usedHdr = new();
                                     foreach (string header in hdr)
                                     {
                                         string h = "; " + header + ": ";
@@ -304,9 +275,9 @@ namespace ManagedWinapi.Windows.Contents
         }
     }
 
-    class TreeViewParser : WindowContentParser
+    internal class TreeViewParser : WindowContentParser
     {
-        uint TVM_GETCOUNT = 0x1100 + 5;
+        private uint TVM_GETCOUNT = 0x1100 + 5;
 
         internal override bool CanParseContent(SystemWindow sw)
         {
@@ -319,7 +290,7 @@ namespace ManagedWinapi.Windows.Contents
             SystemAccessibleObject sao = SystemAccessibleObject.FromWindow(sw, AccessibleObjectID.OBJID_CLIENT);
             if (sao.RoleIndex == 35)
             {
-                List<string> treeNodes = new List<string>();
+                List<string> treeNodes = new();
                 int selected = -1;
                 foreach(SystemAccessibleObject n in sao.Children) {
                     if (n.RoleIndex == 36)

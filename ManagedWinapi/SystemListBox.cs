@@ -33,8 +33,7 @@ namespace ManagedWinapi.Windows
         /// </summary>
         public static SystemListBox FromSystemWindow(SystemWindow sw)
         {
-            if (sw.SendGetMessage(LB_GETCOUNT) == 0) return null;
-            return new SystemListBox(sw);
+            return sw.SendGetMessage(LB_GETCOUNT) == 0 ? null : new SystemListBox(sw);
         }
 
         private SystemWindow sw;
@@ -43,11 +42,6 @@ namespace ManagedWinapi.Windows
         {
             this.sw = sw;
         }
-
-        /// <summary>
-        /// The SystemWindow instance that represents this list box.
-        /// </summary>
-        public SystemWindow SystemWindow => sw;
 
         /// <summary>
         /// The number of elements in this list box.
@@ -113,21 +107,15 @@ namespace ManagedWinapi.Windows
         /// </summary>
         public static SystemComboBox FromSystemWindow(SystemWindow sw)
         {
-            if (sw.SendGetMessage(CB_GETCOUNT) == 0) return null;
-            return new SystemComboBox(sw);
+            return sw.SendGetMessage(CB_GETCOUNT) == 0 ? null : new SystemComboBox(sw);
         }
 
-        SystemWindow sw;
+        private SystemWindow sw;
 
         private SystemComboBox(SystemWindow sw)
         {
             this.sw = sw;
         }
-
-        /// <summary>
-        /// The SystemWindow instance that represents this combo box.
-        /// </summary>
-        public SystemWindow SystemWindow => sw;
 
         /// <summary>
         /// The number of elements in this combo box.
@@ -146,7 +134,7 @@ namespace ManagedWinapi.Windows
                     throw new ArgumentException("Argument out of range");
                 }
                 int length = sw.SendGetMessage(CB_GETLBTEXTLEN, (uint)index);
-                StringBuilder sb = new StringBuilder(length);
+                StringBuilder sb = new(length);
                 SystemWindow.SendMessage(new HandleRef(this, sw.HWnd), CB_GETLBTEXT, new IntPtr(index), sb);
                 return sb.ToString();
 

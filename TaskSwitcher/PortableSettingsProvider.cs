@@ -18,14 +18,9 @@ namespace TaskSwitcher
         private const string _className = "PortableSettingsProvider";
         private XmlDocument _xmlDocument;
 
-        private string _filePath
-        {
-            get
-            {
-                return Path.Combine(Path.GetDirectoryName(Application.ExecutablePath),
-                    string.Format("{0}.settings", ApplicationName));
-            }
-        }
+        private string _filePath =>
+            Path.Combine(Path.GetDirectoryName(Application.ExecutablePath),
+                string.Format("{0}.settings", ApplicationName));
 
         private XmlNode _localSettingsNode
         {
@@ -44,15 +39,9 @@ namespace TaskSwitcher
             }
         }
 
-        private XmlNode _globalSettingsNode
-        {
-            get { return GetSettingsNode(_globalSettingsNodeName); }
-        }
+        private XmlNode _globalSettingsNode => GetSettingsNode(_globalSettingsNodeName);
 
-        private XmlNode _rootNode
-        {
-            get { return _rootDocument.SelectSingleNode(_rootNodeName); }
-        }
+        private XmlNode _rootNode => _rootDocument.SelectSingleNode(_rootNodeName);
 
         private XmlDocument _rootDocument
         {
@@ -81,14 +70,11 @@ namespace TaskSwitcher
 
         public override string ApplicationName
         {
-            get { return Path.GetFileNameWithoutExtension(Application.ExecutablePath); }
+            get => Path.GetFileNameWithoutExtension(Application.ExecutablePath);
             set { }
         }
 
-        public override string Name
-        {
-            get { return _className; }
-        }
+        public override string Name => _className;
 
         public override void Initialize(string name, NameValueCollection config)
         {
@@ -118,7 +104,7 @@ namespace TaskSwitcher
         public override SettingsPropertyValueCollection GetPropertyValues(SettingsContext context,
             SettingsPropertyCollection collection)
         {
-            SettingsPropertyValueCollection values = new SettingsPropertyValueCollection();
+            SettingsPropertyValueCollection values = new();
 
             foreach (SettingsProperty property in collection)
             {
@@ -192,7 +178,7 @@ namespace TaskSwitcher
 
         public XmlDocument GetBlankXmlDocument()
         {
-            XmlDocument blankXmlDocument = new XmlDocument();
+            XmlDocument blankXmlDocument = new();
             blankXmlDocument.AppendChild(blankXmlDocument.CreateXmlDeclaration("1.0", "utf-8", string.Empty));
             blankXmlDocument.AppendChild(blankXmlDocument.CreateElement(_rootNodeName));
 

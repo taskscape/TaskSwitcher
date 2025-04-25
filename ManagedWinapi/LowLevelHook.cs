@@ -53,7 +53,7 @@ namespace ManagedWinapi.Hooks
         public LowLevelKeyboardHook(KeyCallback callback)
             : this()
         {
-            this.KeyIntercepted = callback;
+            KeyIntercepted = callback;
             StartHook();
         }
 
@@ -63,7 +63,7 @@ namespace ManagedWinapi.Hooks
         public LowLevelKeyboardHook()
             : base(HookType.WH_KEYBOARD_LL, false, true)
         {
-            base.Callback += new HookCallback(LowLevelKeyboardHook_Callback);
+            Callback += new HookCallback(LowLevelKeyboardHook_Callback);
         }
 
         private int LowLevelKeyboardHook_Callback(int code, IntPtr wParam, IntPtr lParam, ref bool callNext)
@@ -114,7 +114,7 @@ namespace ManagedWinapi.Hooks
                     short dummy = new KeyboardKey(Keys.Capital).State; // will refresh CAPS LOCK state for current thread
                     byte[] kbdState = new byte[256];
                     ApiHelper.FailIfZero(GetKeyboardState(kbdState));
-                    StringBuilder buff = new StringBuilder(64);
+                    StringBuilder buff = new(64);
                     int length = ToUnicode((int)llh.vkCode, llh.scanCode, kbdState, buff, 64, 0);
                     if (length == -1)
                     {
@@ -181,7 +181,7 @@ namespace ManagedWinapi.Hooks
         public LowLevelMouseHook(MouseCallback callback)
             : this()
         {
-            this.MouseIntercepted = callback;
+            MouseIntercepted = callback;
             StartHook();
         }
 
@@ -191,7 +191,7 @@ namespace ManagedWinapi.Hooks
         public LowLevelMouseHook()
             : base(HookType.WH_MOUSE_LL, false, true)
         {
-            base.Callback += new HookCallback(LowLevelMouseHook_Callback);
+            Callback += new HookCallback(LowLevelMouseHook_Callback);
         }
 
         private int LowLevelMouseHook_Callback(int code, IntPtr wParam, IntPtr lParam, ref bool callNext)
@@ -242,48 +242,33 @@ namespace ManagedWinapi.Hooks
     /// </summary>
     public abstract class LowLevelMessage
     {
-        private int time;
-        private int flags;
-        private int msg;
-        private IntPtr extraInfo;
-
         internal LowLevelMessage(int msg, int flags, int time, IntPtr dwExtraInfo)
         {
-            this.msg = msg;
-            this.flags = flags;
-            this.time = time;
-            this.extraInfo = dwExtraInfo;
+            this.Message = msg;
+            this.Flags = flags;
+            this.Time = time;
+            ExtraInfo = dwExtraInfo;
         }
 
         /// <summary>
         /// The time this message happened.
         /// </summary>
-        public int Time
-        {
-            get { return time; }
-            set { time = value; }
-        }
+        public int Time { get; set; }
 
         /// <summary>
         /// Flags of the message. Its contents depend on the message.
         /// </summary>
-        public int Flags
-        {
-            get { return flags; }
-        }
+        public int Flags { get; }
 
         /// <summary>
         /// The message identifier.
         /// </summary>
-        public int Message
-        {
-            get { return msg; }
-        }
+        public int Message { get; }
 
         /// <summary>
         /// Extra information. Its contents depend on the message.
         /// </summary>
-        public IntPtr ExtraInfo => extraInfo;
+        public IntPtr ExtraInfo { get; }
 
         /// <summary>
         /// Replays this event as if the user did it again.
@@ -296,28 +281,25 @@ namespace ManagedWinapi.Hooks
     /// </summary>
     public class LowLevelMouseMessage : LowLevelMessage
     {
-        private POINT pt;
-        private int mouseData;
-
         /// <summary>
         /// Creates a new low-level mouse message.
         /// </summary>
         public LowLevelMouseMessage(int msg, POINT pt, int mouseData, int flags, int time, IntPtr dwExtraInfo)
             : base(msg, flags, time, dwExtraInfo)
         {
-            this.pt = pt;
-            this.mouseData = mouseData;
+            this.Point = pt;
+            this.MouseData = mouseData;
         }
 
         /// <summary>
         /// The mouse position where this message occurred.
         /// </summary>
-        public POINT Point => pt;
+        public POINT Point { get; }
 
         /// <summary>
         /// Additional mouse data, depending on the type of event.
         /// </summary>
-        public int MouseData => mouseData;
+        public int MouseData { get; }
 
         /// <summary>
         /// Mouse event flags needed to replay this message.
@@ -363,7 +345,7 @@ namespace ManagedWinapi.Hooks
         {
             Cursor.Position = Point;
             if (MouseEventFlags != 0)
-                KeyboardKey.InjectMouseEvent(MouseEventFlags, 0, 0, (uint)mouseData >> 16, new UIntPtr((ulong)ExtraInfo.ToInt64()));
+                KeyboardKey.InjectMouseEvent(MouseEventFlags, 0, 0, (uint)MouseData >> 16, new UIntPtr((ulong)ExtraInfo.ToInt64()));
         }
 
         #region PInvoke Declarations
@@ -381,18 +363,18 @@ namespace ManagedWinapi.Hooks
             HWHEEL = 0x00001000
         }
 
-        const int WM_MOUSEMOVE = 0x200;
-        const int WM_LBUTTONDOWN = 0x201;
-        const int WM_LBUTTONUP = 0x202;
-        const int WM_LBUTTONDBLCLK = 0x203;
-        const int WM_RBUTTONDOWN = 0x204;
-        const int WM_RBUTTONUP = 0x205;
-        const int WM_RBUTTONDBLCLK = 0x206;
-        const int WM_MBUTTONDOWN = 0x207;
-        const int WM_MBUTTONUP = 0x208;
-        const int WM_MBUTTONDBLCLK = 0x209;
-        const int WM_MOUSEWHEEL = 0x20A;
-        const int WM_MOUSEHWHEEL = 0x020E;
+        private const int WM_MOUSEMOVE = 0x200;
+        private const int WM_LBUTTONDOWN = 0x201;
+        private const int WM_LBUTTONUP = 0x202;
+        private const int WM_LBUTTONDBLCLK = 0x203;
+        private const int WM_RBUTTONDOWN = 0x204;
+        private const int WM_RBUTTONUP = 0x205;
+        private const int WM_RBUTTONDBLCLK = 0x206;
+        private const int WM_MBUTTONDOWN = 0x207;
+        private const int WM_MBUTTONUP = 0x208;
+        private const int WM_MBUTTONDBLCLK = 0x209;
+        private const int WM_MOUSEWHEEL = 0x20A;
+        private const int WM_MOUSEHWHEEL = 0x020E;
         #endregion
     }
 
@@ -401,34 +383,25 @@ namespace ManagedWinapi.Hooks
     /// </summary>
     public class LowLevelKeyboardMessage : LowLevelMessage
     {
-        private int vkCode;
-        private int scanCode;
-
         /// <summary>
         /// Creates a new low-level keyboard message.
         /// </summary>
         public LowLevelKeyboardMessage(int msg, int vkCode, int scanCode, int flags, int time, IntPtr dwExtraInfo)
             : base(msg, flags, time, dwExtraInfo)
         {
-            this.vkCode = vkCode;
-            this.scanCode = scanCode;
+            this.VirtualKeyCode = vkCode;
+            this.ScanCode = scanCode;
         }
 
         /// <summary>
         /// The virtual key code that caused this message.
         /// </summary>
-        public int VirtualKeyCode
-        {
-            get { return vkCode; }
-        }
+        public int VirtualKeyCode { get; }
 
         /// <summary>
         /// The scan code that caused this message.
         /// </summary>
-        public int ScanCode
-        {
-            get { return scanCode; }
-        }
+        public int ScanCode { get; }
 
         /// <summary>
         /// Flags needed to replay this event.
@@ -455,12 +428,14 @@ namespace ManagedWinapi.Hooks
         /// </summary>
         public override void ReplayEvent()
         {
-            KeyboardKey.InjectKeyboardEvent((Keys)vkCode, (byte)scanCode, KeyboardEventFlags, new UIntPtr((ulong)ExtraInfo.ToInt64()));
+            KeyboardKey.InjectKeyboardEvent((Keys)VirtualKeyCode, (byte)ScanCode, KeyboardEventFlags, new UIntPtr((ulong)ExtraInfo.ToInt64()));
         }
 
         #region PInvoke Declarations
-        const int KEYEVENTF_KEYUP = 0x2;
-        const int WM_KEYDOWN = 0x100,
+
+        private const int KEYEVENTF_KEYUP = 0x2;
+
+        private const int WM_KEYDOWN = 0x100,
             WM_KEYUP = 0x101,
             WM_SYSKEYDOWN = 0x104,
             WM_SYSKEYUP = 0x105;

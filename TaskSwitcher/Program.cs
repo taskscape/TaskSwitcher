@@ -37,7 +37,7 @@ namespace TaskSwitcher
         {
             RunAsAdministratorIfConfigured();
 
-            using (Mutex mutex = new Mutex(false, mutex_id))
+            using (Mutex mutex = new(false, mutex_id))
             {
                 bool hasHandle = false;
                 try
@@ -58,7 +58,7 @@ namespace TaskSwitcher
 
                     MigrateUserSettings();
 
-                    App app = new App
+                    App app = new()
                     {
                         MainWindow = new MainWindow()
                     };
@@ -75,7 +75,7 @@ namespace TaskSwitcher
         private static void RunAsAdministratorIfConfigured()
         {
             if (!RunAsAdminRequested() || IsRunAsAdmin()) return;
-            ProcessStartInfo proc = new ProcessStartInfo
+            ProcessStartInfo proc = new()
             {
                 UseShellExecute = true,
                 WorkingDirectory = Environment.CurrentDirectory,
@@ -94,7 +94,7 @@ namespace TaskSwitcher
 
         private static void MakePortable(ApplicationSettingsBase settings)
         {
-            PortableSettingsProvider portableSettingsProvider = new PortableSettingsProvider();
+            PortableSettingsProvider portableSettingsProvider = new();
             settings.Providers.Add(portableSettingsProvider);
             foreach (SettingsProperty prop in settings.Properties)
             {
@@ -115,7 +115,7 @@ namespace TaskSwitcher
         private static bool IsRunAsAdmin()
         {
             WindowsIdentity id = WindowsIdentity.GetCurrent();
-            WindowsPrincipal principal = new WindowsPrincipal(id);
+            WindowsPrincipal principal = new(id);
 
             return principal.IsInRole(WindowsBuiltInRole.Administrator);
         }

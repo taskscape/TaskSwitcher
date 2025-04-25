@@ -102,7 +102,7 @@ namespace TaskSwitcher.Core.UnitTests
 
         private static MatchResult Evaluate(string input, string pattern)
         {
-            StartsWithMatcher matcher = new StartsWithMatcher();
+            StartsWithMatcher matcher = new();
             return matcher.Evaluate(input, pattern);
         }
     }

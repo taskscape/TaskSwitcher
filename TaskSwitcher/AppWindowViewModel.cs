@@ -20,30 +20,21 @@ namespace TaskSwitcher
 
         #region IWindowText Members
 
-        public string WindowTitle
-        {
-            get { return AppWindow.Title; }
-        }
+        public string WindowTitle => AppWindow.Title;
 
-        public string ProcessTitle
-        {
-            get { return AppWindow.ProcessTitle; }
-        }
+        public string ProcessTitle => AppWindow.ProcessTitle;
 
         #endregion
 
         #region Bindable properties
 
-        public IntPtr HWnd
-        {
-            get { return AppWindow.HWnd; }
-        }
+        public IntPtr HWnd => AppWindow.HWnd;
 
         private string _formattedTitle;
 
         public string FormattedTitle
         {
-            get { return _formattedTitle; }
+            get => _formattedTitle;
             set
             {
                 _formattedTitle = value;
@@ -55,7 +46,7 @@ namespace TaskSwitcher
 
         public string FormattedProcessTitle
         {
-            get { return _formattedProcessTitle; }
+            get => _formattedProcessTitle;
             set
             {
                 _formattedProcessTitle = value;
@@ -63,11 +54,11 @@ namespace TaskSwitcher
             }
         }
 
-        private bool _isBeingClosed = false;
+        private bool _isBeingClosed;
 
         public bool IsBeingClosed
         {
-            get { return _isBeingClosed; }
+            get => _isBeingClosed;
             set
             {
                 _isBeingClosed = value;
@@ -110,7 +101,7 @@ namespace TaskSwitcher
         
         #region IDisposable Implementation
 
-        private bool _disposed = false;
+        private bool _disposed;
 
         public void Dispose()
         {

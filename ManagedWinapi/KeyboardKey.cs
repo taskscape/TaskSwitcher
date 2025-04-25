@@ -10,8 +10,8 @@ namespace ManagedWinapi
     /// </summary>
     public class KeyboardKey
     {
-        readonly Keys key;
-        readonly bool extended;
+        private readonly Keys key;
+        private readonly bool extended;
 
         /// <summary>
         /// Initializes a new instance of this class for a given key.
@@ -32,10 +32,10 @@ namespace ManagedWinapi
                 case Keys.Down:
                 case Keys.Left:
                 case Keys.Right:
-                    this.extended = true;
+                    extended = true;
                     break;
                 default:
-                    this.extended = false;
+                    extended = false;
                     break;
             }
         }
@@ -43,21 +43,12 @@ namespace ManagedWinapi
         /// <summary>
         /// The state of this key, as seen by this application.
         /// </summary>
-        public short State { get { return GetKeyState((short)key); } }
+        public short State => GetKeyState((short)key);
 
         /// <summary>
         /// The global state of this key.
         /// </summary>
-        public short AsyncState { get { return GetAsyncKeyState((short)key); } }
-
-        /// <summary>
-        /// Press this key and release it.
-        /// </summary>
-        public void PressAndRelease()
-        {
-            Press();
-            Release();
-        }
+        public short AsyncState => GetAsyncKeyState((short)key);
 
         /// <summary>
         /// Press this key.
@@ -150,18 +141,18 @@ namespace ManagedWinapi
            UIntPtr dwExtraInfo);
 
         [DllImport("user32.dll")]
-        static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData,
+        private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData,
            UIntPtr dwExtraInfo);
 
         [DllImport("user32.dll")]
-        static extern int GetKeyNameText(int lParam, [Out] StringBuilder lpString,
+        private static extern int GetKeyNameText(int lParam, [Out] StringBuilder lpString,
            int nSize);
 
         [DllImport("user32.dll")]
-        static extern int MapVirtualKey(int uCode, int uMapType);
+        private static extern int MapVirtualKey(int uCode, int uMapType);
 
         [DllImport("user32.dll")]
-        static extern short GetAsyncKeyState(int vKey);
+        private static extern short GetAsyncKeyState(int vKey);
         #endregion
     }
 }

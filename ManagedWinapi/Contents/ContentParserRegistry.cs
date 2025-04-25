@@ -4,14 +4,11 @@ namespace ManagedWinapi.Windows.Contents
 {
     internal class ContentParserRegistry
     {
-        static ContentParserRegistry instance;
+        private static ContentParserRegistry instance;
 
-        public static ContentParserRegistry Instance
-        {
-            get { return instance ?? (instance = new ContentParserRegistry()); }
-        }
+        public static ContentParserRegistry Instance => instance ?? (instance = new ContentParserRegistry());
 
-        readonly List<WindowContentParser> parsers = new List<WindowContentParser>();
+        private readonly List<WindowContentParser> parsers = new();
 
         private ContentParserRegistry()
         {

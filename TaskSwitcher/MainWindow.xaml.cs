@@ -35,10 +35,10 @@ namespace TaskSwitcher
         private NotifyIcon _notifyIcon;
         private HotKey _hotkey;
 
-        public static readonly RoutedUICommand CloseWindowCommand = new RoutedUICommand();
-        public static readonly RoutedUICommand SwitchToWindowCommand = new RoutedUICommand();
-        public static readonly RoutedUICommand ScrollListDownCommand = new RoutedUICommand();
-        public static readonly RoutedUICommand ScrollListUpCommand = new RoutedUICommand();
+        public static readonly RoutedUICommand CloseWindowCommand = new();
+        public static readonly RoutedUICommand SwitchToWindowCommand = new();
+        public static readonly RoutedUICommand ScrollListDownCommand = new();
+        public static readonly RoutedUICommand ScrollListUpCommand = new();
         private OptionsWindow _optionsWindow;
         private AboutWindow _aboutWindow;
         private AltTabHook _altTabHook;
@@ -161,7 +161,7 @@ namespace TaskSwitcher
                 Icon = icon,
                 Visible = true,
 
-                ContextMenuStrip = new System.Windows.Forms.ContextMenuStrip
+                ContextMenuStrip = new ContextMenuStrip
                 {
                     Items =
     {
@@ -182,7 +182,7 @@ MenuItem menuItem)
         {
             try
             {
-                AutoStart autoStart = new AutoStart
+                AutoStart autoStart = new()
                 {
                     IsEnabled = !menuItem.Checked
                 };
@@ -202,7 +202,7 @@ MenuItem menuItem)
                 return;
             }
 
-            DispatcherTimer timer = new DispatcherTimer();
+            DispatcherTimer timer = new();
 
             timer.Tick += async (sender, args) =>
             {
@@ -235,7 +235,7 @@ MenuItem menuItem)
         {
             try
             {
-                using (WebClient client = new WebClient())
+                using (WebClient client = new())
                 {
                     string versionAsString = await client.DownloadStringTaskAsync(
                         "https://raw.github.com/taskscape/TaskSwitcher/update/version.txt");
@@ -278,7 +278,7 @@ MenuItem menuItem)
                 // Initial UI feedback - could show a loading indicator here
                 
                 // Use the lazy loading approach to avoid loading all windows upfront
-                WindowFinder windowFinder = new WindowFinder();
+                WindowFinder windowFinder = new();
                 
                 // Perform window loading on a background thread
                 _unfilteredWindowList = await Task.Run(() => 
@@ -532,7 +532,7 @@ MenuItem menuItem)
         
         #region IDisposable Implementation
         
-        private bool _disposed = false;
+        private bool _disposed;
         
         public void Dispose()
         {
@@ -708,9 +708,9 @@ MenuItem menuItem)
             // http://www.codeproject.com/Tips/76427/How-to-bring-window-to-top-with-SetForegroundWindo
 
             IntPtr thisWindowHandle = new WindowInteropHelper(this).Handle;
-            AppWindow thisWindow = new AppWindow(thisWindowHandle);
+            AppWindow thisWindow = new(thisWindowHandle);
 
-            KeyboardKey altKey = new KeyboardKey(Keys.Alt);
+            KeyboardKey altKey = new(Keys.Alt);
             bool altKeyPressed = false;
 
             // Press the Alt key if it is not already being pressed
@@ -809,11 +809,11 @@ MenuItem menuItem)
                     lb.SelectedItem = lb.Items[0];
                 }
             }
-            catch (System.Threading.Tasks.TaskCanceledException)
+            catch (TaskCanceledException)
             {
                 // The operation was canceled because a new filter request came in - this is expected
             }
-            catch (System.OperationCanceledException)
+            catch (OperationCanceledException)
             {
                 // The operation was canceled because a new filter request came in - this is expected
             }
@@ -953,13 +953,13 @@ MenuItem menuItem)
         private void DisableSystemMenu()
         {
             IntPtr windowHandle = new WindowInteropHelper(this).Handle;
-            SystemWindow window = new SystemWindow(windowHandle);
+            SystemWindow window = new(windowHandle);
             window.Style = window.Style & ~WindowStyleFlags.SYSMENU;
         }
 
         private void ShowHelpTextBlock_OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            Duration duration = new Duration(TimeSpan.FromSeconds(0.150));
+            Duration duration = new(TimeSpan.FromSeconds(0.150));
             int newHeight = HelpPanel.Height > 0 ? 0 : +17;
             HelpPanel.BeginAnimation(HeightProperty, new DoubleAnimation(HelpPanel.Height, newHeight, duration));
         }

@@ -328,14 +328,12 @@ namespace ManagedWinapi.Windows
 
         private static readonly Predicate<SystemWindow> ALL = delegate { return true; };
 
-        private IntPtr _hwnd;
-
         /// <summary>
         /// Allows getting the current foreground window and setting it.
         /// </summary>
         public static SystemWindow ForegroundWindow
         {
-            get => new SystemWindow(GetForegroundWindow());
+            get => new(GetForegroundWindow());
             set => SetForegroundWindow(value.HWnd);
         }
 
@@ -343,7 +341,7 @@ namespace ManagedWinapi.Windows
         /// The Desktop window, i. e. the window that covers the
         /// complete desktop.
         /// </summary>
-        public static SystemWindow DesktopWindow => new SystemWindow(GetDesktopWindow());
+        public static SystemWindow DesktopWindow => new(GetDesktopWindow());
 
         /// <summary>
         /// Returns all available toplevel windows.
@@ -357,10 +355,10 @@ namespace ManagedWinapi.Windows
         /// <returns>The filtered toplevel windows</returns>
         public static SystemWindow[] FilterToplevelWindows(Predicate<SystemWindow> predicate)
         {
-            List<SystemWindow> wnds = new List<SystemWindow>();
+            List<SystemWindow> wnds = new();
             EnumWindows(new EnumWindowsProc(delegate(IntPtr hwnd, IntPtr lParam)
             {
-                SystemWindow tmp = new SystemWindow(hwnd);
+                SystemWindow tmp = new(hwnd);
                 if (predicate(tmp))
                     wnds.Add(tmp);
                 return 1;
@@ -440,7 +438,7 @@ namespace ManagedWinapi.Windows
         /// <param name="HWnd">The window handle.</param>
         public SystemWindow(IntPtr HWnd)
         {
-            _hwnd = HWnd;
+            this.HWnd = HWnd;
         }
 
         /// <summary>
@@ -449,7 +447,7 @@ namespace ManagedWinapi.Windows
         /// <param name="control">The control.</param>
         public SystemWindow(Control control)
         {
-            _hwnd = control.Handle;
+            HWnd = control.Handle;
         }
 
         /// <summary>
@@ -470,14 +468,14 @@ namespace ManagedWinapi.Windows
         /// <returns>The list of child windows.</returns>
         public SystemWindow[] FilterDescendantWindows(bool directOnly, Predicate<SystemWindow> predicate)
         {
-            List<SystemWindow> wnds = new List<SystemWindow>();
-            EnumChildWindows(_hwnd, delegate(IntPtr hwnd, IntPtr lParam)
+            List<SystemWindow> wnds = new();
+            EnumChildWindows(HWnd, delegate(IntPtr hwnd, IntPtr lParam)
             {
-                SystemWindow tmp = new SystemWindow(hwnd);
+                SystemWindow tmp = new(hwnd);
                 bool add = true;
                 if (directOnly)
                 {
-                    add = tmp.Parent._hwnd == _hwnd;
+                    add = tmp.Parent.HWnd == HWnd;
                 }
 
                 if (add && predicate(tmp))
@@ -490,7 +488,7 @@ namespace ManagedWinapi.Windows
         /// <summary>
         /// The Window handle of this window.
         /// </summary>
-        public IntPtr HWnd => _hwnd;
+        public IntPtr HWnd { get; }
 
         /// <summary>
         /// The title of this window (by the <c>GetWindowText</c> API function).
@@ -499,12 +497,12 @@ namespace ManagedWinapi.Windows
         {
             get
             {
-                StringBuilder sb = new StringBuilder(GetWindowTextLength(_hwnd) + 1);
-                GetWindowText(_hwnd, sb, sb.Capacity);
+                StringBuilder sb = new(GetWindowTextLength(HWnd) + 1);
+                GetWindowText(HWnd, sb, sb.Capacity);
                 return sb.ToString();
             }
 
-            set => SetWindowText(_hwnd, value);
+            set => SetWindowText(HWnd, value);
         }
 
         /// <summary>
@@ -517,7 +515,7 @@ namespace ManagedWinapi.Windows
             get
             {
                 int length = SendGetMessage(WM_GETTEXTLENGTH);
-                StringBuilder sb = new StringBuilder(length + 1);
+                StringBuilder sb = new(length + 1);
                 SendMessage(new HandleRef(this, HWnd), WM_GETTEXT, new IntPtr(sb.Capacity), sb);
                 return sb.ToString();
             }
@@ -534,8 +532,8 @@ namespace ManagedWinapi.Windows
                 int length = 64;
                 while (true)
                 {
-                    StringBuilder sb = new StringBuilder(length);
-                    ApiHelper.FailIfZero(GetClassName(_hwnd, sb, sb.Capacity));
+                    StringBuilder sb = new(length);
+                    ApiHelper.FailIfZero(GetClassName(HWnd, sb, sb.Capacity));
                     if (sb.Length != length - 1)
                     {
                         return sb.ToString();
@@ -550,7 +548,7 @@ namespace ManagedWinapi.Windows
         /// Whether this window is currently visible. A window is visible if its 
         /// and all ancestor's visibility flags are true.
         /// </summary>
-        public bool Visible => IsWindowVisible(_hwnd);
+        public bool Visible => IsWindowVisible(HWnd);
 
         /// <summary>
         /// Whether this window always appears above all other windows
@@ -563,11 +561,11 @@ namespace ManagedWinapi.Windows
             {
                 if (value)
                 {
-                    SetWindowPos(_hwnd, new IntPtr(-1), 0, 0, 0, 0, 3);
+                    SetWindowPos(HWnd, new IntPtr(-1), 0, 0, 0, 0, 3);
                 }
                 else
                 {
-                    SetWindowPos(_hwnd, new IntPtr(-2), 0, 0, 0, 0, 3);
+                    SetWindowPos(HWnd, new IntPtr(-2), 0, 0, 0, 0, 3);
                 }
             }
         }
@@ -577,11 +575,11 @@ namespace ManagedWinapi.Windows
         /// </summary>
         public bool Enabled
         {
-            get => IsWindowEnabled(_hwnd);
-            set => EnableWindow(_hwnd, value);
+            get => IsWindowEnabled(HWnd);
+            set => EnableWindow(HWnd, value);
         }
 
-        private bool _isClosed = false;
+        private bool _isClosed;
 
         public bool IsClosed
         {
@@ -594,7 +592,7 @@ namespace ManagedWinapi.Windows
 
         private bool GetClassNameFails()
         {
-            StringBuilder builder = new StringBuilder(2);
+            StringBuilder builder = new(2);
             return GetClassName(HWnd, builder, builder.Capacity) == 0;
         }
 
@@ -610,7 +608,7 @@ namespace ManagedWinapi.Windows
         public bool VisibilityFlag
         {
             get => (Style & WindowStyleFlags.VISIBLE) != 0;
-            set => ShowWindow(_hwnd, value ? 5 : 0);
+            set => ShowWindow(HWnd, value ? 5 : 0);
         }
 
         /// <summary>
@@ -618,8 +616,8 @@ namespace ManagedWinapi.Windows
         /// </summary>
         public WindowStyleFlags Style
         {
-            get => (WindowStyleFlags) (long) GetWindowLongPtr(_hwnd, (int) (GWL.GWL_STYLE));
-            set => SetWindowLong(_hwnd, (int) GWL.GWL_STYLE, (int) value);
+            get => (WindowStyleFlags) (long) GetWindowLongPtr(HWnd, (int) (GWL.GWL_STYLE));
+            set => SetWindowLong(HWnd, (int) GWL.GWL_STYLE, (int) value);
         }
 
         /// <summary>
@@ -627,15 +625,15 @@ namespace ManagedWinapi.Windows
         /// </summary>
         public WindowExStyleFlags ExtendedStyle
         {
-            get => (WindowExStyleFlags) GetWindowLongPtr(_hwnd, (int) (GWL.GWL_EXSTYLE));
-            set => SetWindowLong(_hwnd, (int) GWL.GWL_EXSTYLE, (int) value);
+            get => (WindowExStyleFlags) GetWindowLongPtr(HWnd, (int) (GWL.GWL_EXSTYLE));
+            set => SetWindowLong(HWnd, (int) GWL.GWL_EXSTYLE, (int) value);
         }
 
         /// <summary>
         /// This window's parent. A dialog's parent is its owner, a component's parent is
         /// the window that contains it.
         /// </summary>
-        public SystemWindow Parent => new SystemWindow(GetParent(_hwnd));
+        public SystemWindow Parent => new(GetParent(HWnd));
 
         /// <summary>
         /// The window's parent, but only if this window is its parent child. Some
@@ -671,19 +669,19 @@ namespace ManagedWinapi.Windows
         {
             get
             {
-                WINDOWPLACEMENT wp = new WINDOWPLACEMENT();
+                WINDOWPLACEMENT wp = new();
                 wp.length = Marshal.SizeOf(wp);
-                GetWindowPlacement(_hwnd, ref wp);
+                GetWindowPlacement(HWnd, ref wp);
                 return wp.rcNormalPosition;
             }
 
             set
             {
-                WINDOWPLACEMENT wp = new WINDOWPLACEMENT();
+                WINDOWPLACEMENT wp = new();
                 wp.length = Marshal.SizeOf(wp);
-                GetWindowPlacement(_hwnd, ref wp);
+                GetWindowPlacement(HWnd, ref wp);
                 wp.rcNormalPosition = value;
-                SetWindowPlacement(_hwnd, ref wp);
+                SetWindowPlacement(HWnd, ref wp);
             }
         }
 
@@ -696,14 +694,14 @@ namespace ManagedWinapi.Windows
 
             set
             {
-                WINDOWPLACEMENT wp = new WINDOWPLACEMENT();
+                WINDOWPLACEMENT wp = new();
                 wp.length = Marshal.SizeOf(wp);
-                GetWindowPlacement(_hwnd, ref wp);
+                GetWindowPlacement(HWnd, ref wp);
                 wp.rcNormalPosition.Bottom = value.Y + wp.rcNormalPosition.Height;
                 wp.rcNormalPosition.Right = value.X + wp.rcNormalPosition.Width;
                 wp.rcNormalPosition.Top = value.Y;
                 wp.rcNormalPosition.Left = value.X;
-                SetWindowPlacement(_hwnd, ref wp);
+                SetWindowPlacement(HWnd, ref wp);
             }
         }
 
@@ -716,12 +714,12 @@ namespace ManagedWinapi.Windows
 
             set
             {
-                WINDOWPLACEMENT wp = new WINDOWPLACEMENT();
+                WINDOWPLACEMENT wp = new();
                 wp.length = Marshal.SizeOf(wp);
-                GetWindowPlacement(_hwnd, ref wp);
+                GetWindowPlacement(HWnd, ref wp);
                 wp.rcNormalPosition.Right = wp.rcNormalPosition.Left + value.Width;
                 wp.rcNormalPosition.Bottom = wp.rcNormalPosition.Top + value.Height;
-                SetWindowPlacement(_hwnd, ref wp);
+                SetWindowPlacement(HWnd, ref wp);
             }
         }
 
@@ -733,8 +731,8 @@ namespace ManagedWinapi.Windows
         {
             get
             {
-                RECT r = new RECT();
-                GetWindowRect(_hwnd, out r);
+                RECT r = new();
+                GetWindowRect(HWnd, out r);
                 return r;
             }
         }
@@ -746,7 +744,7 @@ namespace ManagedWinapi.Windows
         /// <returns>If this is really an ancestor</returns>
         public bool IsDescendantOf(SystemWindow ancestor)
         {
-            return IsChild(ancestor._hwnd, _hwnd);
+            return IsChild(ancestor.HWnd, HWnd);
         }
 
         /// <summary>
@@ -787,7 +785,7 @@ namespace ManagedWinapi.Windows
         {
             get
             {
-                WINDOWPLACEMENT wp = new WINDOWPLACEMENT();
+                WINDOWPLACEMENT wp = new();
                 wp.length = Marshal.SizeOf(wp);
                 GetWindowPlacement(HWnd, ref wp);
                 switch (wp.showCmd % 4)
@@ -841,7 +839,7 @@ namespace ManagedWinapi.Windows
         {
             get
             {
-                Bitmap bmp = new Bitmap(Position.Width, Position.Height);
+                Bitmap bmp = new(Position.Width, Position.Height);
                 Graphics g = Graphics.FromImage(bmp);
                 IntPtr pTarget = g.GetHdc();
                 IntPtr pSource = CreateCompatibleDC(pTarget);
@@ -875,7 +873,7 @@ namespace ManagedWinapi.Windows
             }
             set
             {
-                Bitmap bmp = new Bitmap(1, 1);
+                Bitmap bmp = new(1, 1);
                 Graphics g = Graphics.FromImage(bmp);
                 SetWindowRgn(HWnd, value.GetHrgn(g), true);
                 g.Dispose();
@@ -897,7 +895,7 @@ namespace ManagedWinapi.Windows
         /// The ID of a control within a dialog. This is used in
         /// WM_COMMAND messages to distinguish which control sent the command.
         /// </summary>
-        public int DialogID => GetWindowLong32(_hwnd, (int) GWL.GWL_ID);
+        public int DialogID => GetWindowLong32(HWnd, (int) GWL.GWL_ID);
 
         /// <summary>
         /// Get the window that is below this window in the Z order,
@@ -935,8 +933,8 @@ namespace ManagedWinapi.Windows
         public WindowDeviceContext GetDeviceContext(bool clientAreaOnly)
         {
             return clientAreaOnly
-                ? new WindowDeviceContext(this, GetDC(_hwnd))
-                : new WindowDeviceContext(this, GetWindowDC(_hwnd));
+                ? new WindowDeviceContext(this, GetDC(HWnd))
+                : new WindowDeviceContext(this, GetWindowDC(HWnd));
         }
 
         /// <summary>
@@ -961,7 +959,7 @@ namespace ManagedWinapi.Windows
         /// </summary>
         public bool IsValid()
         {
-            return _hwnd != IntPtr.Zero;
+            return HWnd != IntPtr.Zero;
         }
 
         /// <summary>
@@ -1001,7 +999,7 @@ namespace ManagedWinapi.Windows
         public void Highlight()
         {
             RECT rect;
-            GetWindowRect(_hwnd, out rect);
+            GetWindowRect(HWnd, out rect);
             using (WindowDeviceContext windowDC = GetDeviceContext(false))
             {
                 using (Graphics g = windowDC.CreateGraphics())
@@ -1017,11 +1015,11 @@ namespace ManagedWinapi.Windows
         public void Refresh()
         {
             // By using parent, we get better results in refreshing old drawing window area.
-            IntPtr hwndToRefresh = _hwnd;
+            IntPtr hwndToRefresh = HWnd;
             SystemWindow parentWindow = ParentSymmetric;
             if (parentWindow != null)
             {
-                hwndToRefresh = parentWindow._hwnd;
+                hwndToRefresh = parentWindow.HWnd;
             }
 
             InvalidateRect(hwndToRefresh, IntPtr.Zero, true);
@@ -1066,14 +1064,14 @@ namespace ManagedWinapi.Windows
                 return false;
             }
 
-            return _hwnd == sw._hwnd;
+            return HWnd == sw.HWnd;
         }
 
         ///
         public override int GetHashCode()
         {
             // avoid exceptions
-            return unchecked((int) _hwnd.ToInt64());
+            return unchecked((int) HWnd.ToInt64());
         }
 
         /// <summary>
@@ -1091,7 +1089,7 @@ namespace ManagedWinapi.Windows
                 return false;
             }
 
-            return a._hwnd == b._hwnd;
+            return a.HWnd == b.HWnd;
         }
 
         /// <summary>
@@ -1120,7 +1118,7 @@ namespace ManagedWinapi.Windows
         private static extern int GetWindowTextLength(IntPtr hWnd);
 
         [DllImport("user32.dll")]
-        static extern bool SetWindowText(IntPtr hWnd, string lpString);
+        private static extern bool SetWindowText(IntPtr hWnd, string lpString);
 
         [DllImport("user32.dll")]
         private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
@@ -1172,7 +1170,7 @@ namespace ManagedWinapi.Windows
         private static extern IntPtr GetParent(IntPtr hWnd);
 
         [DllImport("user32.dll")]
-        static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
+        private static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct WINDOWPLACEMENT
@@ -1186,65 +1184,65 @@ namespace ManagedWinapi.Windows
         }
 
         [DllImport("user32.dll")]
-        static extern bool GetWindowPlacement(IntPtr hWnd,
+        private static extern bool GetWindowPlacement(IntPtr hWnd,
             ref WINDOWPLACEMENT lpwndpl);
 
         [DllImport("user32.dll")]
-        static extern bool SetWindowPlacement(IntPtr hWnd,
+        private static extern bool SetWindowPlacement(IntPtr hWnd,
             [In] ref WINDOWPLACEMENT lpwndpl);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool EnumChildWindows(IntPtr hwndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        private static extern bool EnumChildWindows(IntPtr hwndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
 
         [DllImport("user32.dll")]
         private static extern IntPtr WindowFromPoint(POINT Point);
 
         [DllImport("user32.dll", SetLastError = true)]
-        static extern int GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
+        private static extern int GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
 
         [DllImport("user32.dll")]
-        static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
         [DllImport("user32.dll")]
-        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
         [DllImport("gdi32.dll")]
-        static extern IntPtr CreateRectRgn(int nLeftRect, int nTopRect, int nRightRect,
+        private static extern IntPtr CreateRectRgn(int nLeftRect, int nTopRect, int nRightRect,
             int nBottomRect);
 
         [DllImport("user32.dll")]
-        static extern int GetWindowRgn(IntPtr hWnd, IntPtr hRgn);
+        private static extern int GetWindowRgn(IntPtr hWnd, IntPtr hRgn);
 
         [DllImport("user32.dll")]
-        static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
+        private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
 
         [DllImport("gdi32.dll")]
-        static extern bool BitBlt(IntPtr hObject, int nXDest, int nYDest, int nWidth,
+        private static extern bool BitBlt(IntPtr hObject, int nXDest, int nYDest, int nWidth,
             int nHeight, IntPtr hObjSource, int nXSrc, int nYSrc, int dwRop);
 
         [DllImport("user32.dll", SetLastError = true)]
-        static extern bool PrintWindow(IntPtr hwnd, IntPtr hDC, uint nFlags);
+        private static extern bool PrintWindow(IntPtr hwnd, IntPtr hDC, uint nFlags);
 
         [DllImport("user32.dll")]
-        static extern IntPtr GetWindowDC(IntPtr hWnd);
+        private static extern IntPtr GetWindowDC(IntPtr hWnd);
 
         [DllImport("user32.dll")]
-        static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+        private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
 
         [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+        private static extern IntPtr CreateCompatibleDC(IntPtr hdc);
 
         [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        static extern bool DeleteDC(IntPtr hdc);
+        private static extern bool DeleteDC(IntPtr hdc);
 
         [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
+        private static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
 
         [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        static extern bool DeleteObject(IntPtr hObject);
+        private static extern bool DeleteObject(IntPtr hObject);
 
-        enum TernaryRasterOperations : uint
+        private enum TernaryRasterOperations : uint
         {
             SRCCOPY = 0x00CC0020,
             SRCPAINT = 0x00EE0086,
@@ -1263,7 +1261,7 @@ namespace ManagedWinapi.Windows
             WHITENESS = 0x00FF0062
         }
 
-        enum GetWindowRegnReturnValues : int
+        private enum GetWindowRegnReturnValues : int
         {
             ERROR = 0,
             NULLREGION = 1,
@@ -1271,8 +1269,8 @@ namespace ManagedWinapi.Windows
             COMPLEXREGION = 3
         }
 
-        static readonly uint EM_GETPASSWORDCHAR = 0xD2, EM_SETPASSWORDCHAR = 0xCC;
-        static readonly uint BM_GETCHECK = 0xF0, BM_SETCHECK = 0xF1;
+        private static readonly uint EM_GETPASSWORDCHAR = 0xD2, EM_SETPASSWORDCHAR = 0xCC;
+        private static readonly uint BM_GETCHECK = 0xF0, BM_SETCHECK = 0xF1;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = false)]
         internal static extern IntPtr SendMessage(HandleRef hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
@@ -1291,14 +1289,14 @@ namespace ManagedWinapi.Windows
         private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
 
         [DllImport("user32.dll", SetLastError = false)]
-        static extern IntPtr GetDesktopWindow();
+        private static extern IntPtr GetDesktopWindow();
 
         [DllImport("user32.dll")]
-        static extern IntPtr GetDC(IntPtr hWnd);
+        private static extern IntPtr GetDC(IntPtr hWnd);
 
         private const int WM_CLOSE = 16, WM_GETTEXT = 13, WM_GETTEXTLENGTH = 14, WM_SYSCOMMAND = 274;
 
-        private IntPtr SC_CLOSE = new IntPtr(61536);
+        private IntPtr SC_CLOSE = new(61536);
 
         private enum GetWindow_Cmd
         {
@@ -1345,26 +1343,25 @@ namespace ManagedWinapi.Windows
     /// </summary>
     public class WindowDeviceContext : IDisposable
     {
-        IntPtr hDC;
-        SystemWindow systemWindow;
+        private SystemWindow systemWindow;
 
         internal WindowDeviceContext(SystemWindow systemWindow, IntPtr hDC)
         {
             this.systemWindow = systemWindow;
-            this.hDC = hDC;
+            this.HDC = hDC;
         }
 
         /// <summary>
         /// The device context handle.
         /// </summary>
-        public IntPtr HDC => hDC;
+        public IntPtr HDC { get; private set; }
 
         /// <summary>
         /// Creates a Graphics object for this device context.
         /// </summary>
         public Graphics CreateGraphics()
         {
-            return Graphics.FromHdc(hDC);
+            return Graphics.FromHdc(HDC);
         }
 
         /// <summary>
@@ -1372,9 +1369,9 @@ namespace ManagedWinapi.Windows
         /// </summary>
         public void Dispose()
         {
-            if (hDC == IntPtr.Zero) return;
-            ReleaseDC(systemWindow.HWnd, hDC);
-            hDC = IntPtr.Zero;
+            if (HDC == IntPtr.Zero) return;
+            ReleaseDC(systemWindow.HWnd, HDC);
+            HDC = IntPtr.Zero;
         }
 
         [DllImport("user32.dll")]

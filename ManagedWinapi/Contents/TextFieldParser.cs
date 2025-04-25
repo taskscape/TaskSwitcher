@@ -8,9 +8,9 @@ namespace ManagedWinapi.Windows.Contents
     /// </summary>
     public class TextContent : WindowContent
     {
-        readonly string text;
-        readonly bool password;
-        readonly bool strict;
+        private readonly string text;
+        private readonly bool password;
+        private readonly bool strict;
 
         internal TextContent(string text, bool password, bool strict)
         {
@@ -20,10 +20,7 @@ namespace ManagedWinapi.Windows.Contents
         }
 
         ///
-        public string ComponentType
-        {
-            get { return strict ? "TextBox" : "Text"; }
-        }
+        public string ComponentType => strict ? "TextBox" : "Text";
 
         ///
         public string ShortDescription
@@ -58,7 +55,7 @@ namespace ManagedWinapi.Windows.Contents
         {
             get
             {
-                Dictionary<string, string> result = new Dictionary<string, string>();
+                Dictionary<string, string> result = new();
                 result.Add("Password", password ? "True" : "False");
                 result.Add("MultiLine", text.IndexOf('\n') != -1 ? "True" : "False");
                 result.Add("Text", text);
@@ -67,9 +64,9 @@ namespace ManagedWinapi.Windows.Contents
         }
     }
 
-    class TextFieldParser : WindowContentParser
+    internal class TextFieldParser : WindowContentParser
     {
-        readonly bool strict;
+        private readonly bool strict;
 
         public TextFieldParser(bool strict)
         {

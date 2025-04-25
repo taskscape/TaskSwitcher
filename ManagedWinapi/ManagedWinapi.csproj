@@ -21,20 +21,11 @@
     <Compile Update="Hook.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Update="JournalHook.cs">
-      <SubType>Component</SubType>
-    </Compile>
     <Compile Update="LowLevelHook.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Update="ShortcutBox.cs">
       <SubType>Component</SubType>
-    </Compile>
-    <Compile Update="ClipboardNotifier.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Update="Crosshair.cs">
-      <SubType>UserControl</SubType>
     </Compile>
     <Compile Update="Hotkey.cs">
       <SubType>Component</SubType>

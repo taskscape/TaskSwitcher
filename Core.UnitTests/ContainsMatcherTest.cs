@@ -106,7 +106,7 @@ namespace TaskSwitcher.Core.UnitTests
 
         private static MatchResult Evaluate(string input, string pattern)
         {
-            ContainsMatcher containsMatcher = new ContainsMatcher();
+            ContainsMatcher containsMatcher = new();
             return containsMatcher.Evaluate(input, pattern);
         }
     }

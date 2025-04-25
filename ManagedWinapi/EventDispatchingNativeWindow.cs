@@ -18,8 +18,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Windows.Forms;
 
 namespace ManagedWinapi.Windows
@@ -43,7 +41,7 @@ namespace ManagedWinapi.Windows
     public class EventDispatchingNativeWindow : NativeWindow
     {
 
-        private static Object myLock = new Object();
+        private static Object myLock = new();
         private static EventDispatchingNativeWindow _instance;
 
         /// <summary>
@@ -56,9 +54,7 @@ namespace ManagedWinapi.Windows
             {
                 lock (myLock)
                 {
-                    if (_instance == null)
-                        _instance = new EventDispatchingNativeWindow();
-                    return _instance;
+                    return _instance ??= new EventDispatchingNativeWindow();
                 }
             }
         }
@@ -84,8 +80,7 @@ namespace ManagedWinapi.Windows
         protected override void WndProc(ref Message m)
         {
             bool handled = false;
-            if (EventHandler != null)
-                EventHandler(ref m, ref handled);
+            EventHandler?.Invoke(ref m, ref handled);
             if (!handled)
                 base.WndProc(ref m);
         }
