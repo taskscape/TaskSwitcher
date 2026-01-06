@@ -4,7 +4,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
-using System.Net;
+using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
@@ -29,16 +29,21 @@ namespace TaskSwitcher
 {
     public partial class MainWindow : Window, IDisposable
     {
+        private static readonly HttpClient HttpClient = new();
+
         private WindowCloser _windowCloser;
         private List<AppWindowViewModel> _unfilteredWindowList;
         private ObservableCollection<AppWindowViewModel> _filteredWindowList;
         private NotifyIcon _notifyIcon;
         private HotKey _hotkey;
+        private List<AppWindowViewModel> _cachedWindowList;
+        private DateTime _lastWindowLoad = DateTime.MinValue;
+        private readonly TimeSpan _windowCacheDuration = TimeSpan.FromSeconds(1);
 
-        public static readonly RoutedUICommand CloseWindowCommand = new RoutedUICommand();
-        public static readonly RoutedUICommand SwitchToWindowCommand = new RoutedUICommand();
-        public static readonly RoutedUICommand ScrollListDownCommand = new RoutedUICommand();
-        public static readonly RoutedUICommand ScrollListUpCommand = new RoutedUICommand();
+        public static readonly RoutedUICommand CloseWindowCommand = new();
+        public static readonly RoutedUICommand SwitchToWindowCommand = new();
+        public static readonly RoutedUICommand ScrollListDownCommand = new();
+        public static readonly RoutedUICommand ScrollListUpCommand = new();
         private OptionsWindow _optionsWindow;
         private AboutWindow _aboutWindow;
         private AltTabHook _altTabHook;
@@ -161,11 +166,13 @@ namespace TaskSwitcher
                 Icon = icon,
                 Visible = true,
 
-                ContextMenuStrip = new System.Windows.Forms.ContextMenuStrip
+                ContextMenuStrip = new ContextMenuStrip
                 {
                     Items =
     {
-        new ToolStripMenuItem("Options", null, (s, e) => Options()),
+        new ToolStripMenuItem("Options",
+                              null,
+                              (s, e) => Options()),
         runOnStartupMenuItem,
         new ToolStripMenuItem("About", null, (s, e) => About()),
         new ToolStripMenuItem("Exit", null, (s, e) => Quit())
@@ -180,7 +187,7 @@ MenuItem menuItem)
         {
             try
             {
-                AutoStart autoStart = new AutoStart
+                AutoStart autoStart = new()
                 {
                     IsEnabled = !menuItem.Checked
                 };
@@ -200,7 +207,7 @@ MenuItem menuItem)
                 return;
             }
 
-            DispatcherTimer timer = new DispatcherTimer();
+            DispatcherTimer timer = new();
 
             timer.Tick += async (sender, args) =>
             {
@@ -215,7 +222,7 @@ MenuItem menuItem)
                         "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
                     if (result == MessageBoxResult.Yes)
                     {
-                        Process.Start("https://github.com/kvakulo/TaskSwitcher/releases/latest");
+                        Process.Start("https://github.com/Taskscape/TaskSwitcher/releases/latest");
                     }
                 }
                 else
@@ -231,21 +238,19 @@ MenuItem menuItem)
 
         private static async Task<Version> GetLatestVersion()
         {
+            using var perf = PerfRecorder.Measure("GetLatestVersion");
             try
             {
-                using (WebClient client = new WebClient())
+                string versionAsString = await HttpClient.GetStringAsync(
+                    "https://raw.github.com/taskscape/TaskSwitcher/update/version.txt");
+
+                Version newVersion;
+                if (Version.TryParse(versionAsString, out newVersion))
                 {
-                    string versionAsString = await client.DownloadStringTaskAsync(
-                        "https://raw.github.com/kvakulo/TaskSwitcher/update/version.txt");
-                    
-                    Version newVersion;
-                    if (Version.TryParse(versionAsString, out newVersion))
-                    {
-                        return newVersion;
-                    }
+                    return newVersion;
                 }
             }
-            catch (WebException)
+            catch (HttpRequestException)
             {
                 // Log or handle the exception
             }
@@ -260,6 +265,7 @@ MenuItem menuItem)
         /// </summary>
         private async void LoadData(InitialFocus focus)
         {
+            using var perf = PerfRecorder.Measure("LoadData");
             // Cancel any previous loading operation
             if (_loadCancellationTokenSource != null)
             {
@@ -276,13 +282,24 @@ MenuItem menuItem)
                 // Initial UI feedback - could show a loading indicator here
                 
                 // Use the lazy loading approach to avoid loading all windows upfront
-                WindowFinder windowFinder = new WindowFinder();
-                
-                // Perform window loading on a background thread
-                _unfilteredWindowList = await Task.Run(() => 
+                WindowFinder windowFinder = new();
+
+                // Perform window loading on a background thread with a short-lived cache to avoid redundant enumerations
+                _unfilteredWindowList = await Task.Run(() =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    return windowFinder.GetWindowsLazy().Select(window => new AppWindowViewModel(window)).ToList();
+
+                    if (_cachedWindowList != null && (DateTime.UtcNow - _lastWindowLoad) < _windowCacheDuration)
+                    {
+                        return new List<AppWindowViewModel>(_cachedWindowList);
+                    }
+
+                    using var perfWindows = PerfRecorder.Measure("EnumerateWindows");
+                    var windows = windowFinder.GetWindowsLazy().ToList();
+                    var viewModels = windows.Select(window => new AppWindowViewModel(window)).ToList();
+                    _cachedWindowList = viewModels;
+                    _lastWindowLoad = DateTime.UtcNow;
+                    return new List<AppWindowViewModel>(viewModels);
                 }, cancellationToken);
                 
                 // Check for cancellation before proceeding
@@ -302,7 +319,7 @@ MenuItem menuItem)
                 // Check for cancellation before updating the UI
                 cancellationToken.ThrowIfCancellationRequested();
                 
-                _filteredWindowList = new ObservableCollection<AppWindowViewModel>(_unfilteredWindowList);
+                _filteredWindowList = [.. _unfilteredWindowList];
                 _windowCloser = new WindowCloser();
                 
                 // Update UI before starting background formatting
@@ -339,8 +356,10 @@ MenuItem menuItem)
         /// </summary>
         private void FormatWindowTitles(List<AppWindowViewModel> windows, System.Threading.CancellationToken cancellationToken)
         {
+            using var perf = PerfRecorder.Measure("FormatWindowTitles.Async");
             const int batchSize = 10;
             int processedCount = 0;
+            XamlHighlighter highlighter = new();
             
             while (processedCount < windows.Count)
             {
@@ -356,14 +375,44 @@ MenuItem menuItem)
                 {
                     batch.Add(windows[i]);
                 }
+
+                // Precompute formatting off the UI thread
+                var formattedBatch = new List<(AppWindowViewModel vm, string title, string formattedTitle, string processTitle, string formattedProcessTitle)>(batch.Count);
+                foreach (AppWindowViewModel window in batch)
+                {
+                    string title = window.AppWindow.Title ?? string.Empty;
+                    string formattedTitle = null;
+                    if (!string.Equals(window.LastFormattedTitleSource, title, StringComparison.Ordinal))
+                    {
+                        formattedTitle = highlighter.Highlight(new[] { new StringPart(title) });
+                    }
+
+                    string processTitle = window.AppWindow.ProcessTitle ?? string.Empty;
+                    string formattedProcessTitle = null;
+                    if (!string.Equals(window.LastFormattedProcessTitleSource, processTitle, StringComparison.Ordinal))
+                    {
+                        formattedProcessTitle = highlighter.Highlight(new[] { new StringPart(processTitle) });
+                    }
+
+                    formattedBatch.Add((window, title, formattedTitle, processTitle, formattedProcessTitle));
+                }
                 
                 // Update the UI on the dispatcher thread
                 Dispatcher.Invoke(() => 
                 {
-                    foreach (AppWindowViewModel window in batch)
+                    foreach (var item in formattedBatch)
                     {
-                        window.FormattedTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.Title) });
-                        window.FormattedProcessTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.ProcessTitle) });
+                        if (item.formattedTitle != null)
+                        {
+                            item.vm.FormattedTitle = item.formattedTitle;
+                            item.vm.LastFormattedTitleSource = item.title;
+                        }
+
+                        if (item.formattedProcessTitle != null)
+                        {
+                            item.vm.FormattedProcessTitle = item.formattedProcessTitle;
+                            item.vm.LastFormattedProcessTitleSource = item.processTitle;
+                        }
                     }
                 });
                 
@@ -379,19 +428,51 @@ MenuItem menuItem)
         /// </summary>
         private void FormatWindowTitles(List<AppWindowViewModel> windows)
         {
+            using var perf = PerfRecorder.Measure("FormatWindowTitles.Dispatcher");
             const int batchSize = 10;
             int processedCount = 0;
+            XamlHighlighter highlighter = new();
             
             Action processNextBatch = null;
             processNextBatch = () =>
             {
                 int end = Math.Min(processedCount + batchSize, windows.Count);
                 
+                var formattedBatch = new List<(AppWindowViewModel vm, string title, string formattedTitle, string processTitle, string formattedProcessTitle)>(end - processedCount);
+
                 for (int i = processedCount; i < end; i++)
                 {
                     AppWindowViewModel window = windows[i];
-                    window.FormattedTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.Title) });
-                    window.FormattedProcessTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.ProcessTitle) });
+                    string title = window.AppWindow.Title ?? string.Empty;
+                    string formattedTitle = null;
+                    if (!string.Equals(window.LastFormattedTitleSource, title, StringComparison.Ordinal))
+                    {
+                        formattedTitle = highlighter.Highlight(new[] { new StringPart(title) });
+                    }
+
+                    string processTitle = window.AppWindow.ProcessTitle ?? string.Empty;
+                    string formattedProcessTitle = null;
+                    if (!string.Equals(window.LastFormattedProcessTitleSource, processTitle, StringComparison.Ordinal))
+                    {
+                        formattedProcessTitle = highlighter.Highlight(new[] { new StringPart(processTitle) });
+                    }
+
+                    formattedBatch.Add((window, title, formattedTitle, processTitle, formattedProcessTitle));
+                }
+
+                foreach (var item in formattedBatch)
+                {
+                    if (item.formattedTitle != null)
+                    {
+                        item.vm.FormattedTitle = item.formattedTitle;
+                        item.vm.LastFormattedTitleSource = item.title;
+                    }
+
+                    if (item.formattedProcessTitle != null)
+                    {
+                        item.vm.FormattedProcessTitle = item.formattedProcessTitle;
+                        item.vm.LastFormattedProcessTitleSource = item.processTitle;
+                    }
                 }
                 
                 processedCount = end;
@@ -530,7 +611,7 @@ MenuItem menuItem)
         
         #region IDisposable Implementation
         
-        private bool _disposed = false;
+        private bool _disposed;
         
         public void Dispose()
         {
@@ -706,9 +787,9 @@ MenuItem menuItem)
             // http://www.codeproject.com/Tips/76427/How-to-bring-window-to-top-with-SetForegroundWindo
 
             IntPtr thisWindowHandle = new WindowInteropHelper(this).Handle;
-            AppWindow thisWindow = new AppWindow(thisWindowHandle);
+            AppWindow thisWindow = new(thisWindowHandle);
 
-            KeyboardKey altKey = new KeyboardKey(Keys.Alt);
+            KeyboardKey altKey = new(Keys.Alt);
             bool altKeyPressed = false;
 
             // Press the Alt key if it is not already being pressed
@@ -735,6 +816,7 @@ MenuItem menuItem)
         
         private async void TextChanged(object sender, TextChangedEventArgs args)
         {
+            using var perf = PerfRecorder.Measure("FilterWindows");
             if (!tb.IsEnabled)
             {
                 return;
@@ -753,6 +835,8 @@ MenuItem menuItem)
 
             try
             {
+                await Task.Delay(100, cancellationToken); // debounce rapid typing
+
                 string query = tb.Text;
                 
                 // Show some immediate feedback to the user
@@ -769,12 +853,13 @@ MenuItem menuItem)
                 };
 
                 // Perform filtering on a background thread
+                WindowFilterer windowFilterer = new();
                 List<FilterResult<AppWindowViewModel>> filterResults = await Task.Run(() => 
                 {
                     // Check for cancellation before starting work
                     cancellationToken.ThrowIfCancellationRequested();
                     
-                    return new WindowFilterer().Filter(context, query).ToList();
+                    return windowFilterer.Filter(context, query).ToList();
                 }, cancellationToken);
                 
                 // Check for cancellation before formatting titles
@@ -807,11 +892,11 @@ MenuItem menuItem)
                     lb.SelectedItem = lb.Items[0];
                 }
             }
-            catch (System.Threading.Tasks.TaskCanceledException)
+            catch (TaskCanceledException)
             {
                 // The operation was canceled because a new filter request came in - this is expected
             }
-            catch (System.OperationCanceledException)
+            catch (OperationCanceledException)
             {
                 // The operation was canceled because a new filter request came in - this is expected
             }
@@ -951,13 +1036,13 @@ MenuItem menuItem)
         private void DisableSystemMenu()
         {
             IntPtr windowHandle = new WindowInteropHelper(this).Handle;
-            SystemWindow window = new SystemWindow(windowHandle);
+            SystemWindow window = new(windowHandle);
             window.Style = window.Style & ~WindowStyleFlags.SYSMENU;
         }
 
         private void ShowHelpTextBlock_OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            Duration duration = new Duration(TimeSpan.FromSeconds(0.150));
+            Duration duration = new(TimeSpan.FromSeconds(0.150));
             int newHeight = HelpPanel.Height > 0 ? 0 : +17;
             HelpPanel.BeginAnimation(HeightProperty, new DoubleAnimation(HelpPanel.Height, newHeight, duration));
         }
