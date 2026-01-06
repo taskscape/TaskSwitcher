@@ -36,6 +36,9 @@ namespace TaskSwitcher
         private ObservableCollection<AppWindowViewModel> _filteredWindowList;
         private NotifyIcon _notifyIcon;
         private HotKey _hotkey;
+        private List<AppWindowViewModel> _cachedWindowList;
+        private DateTime _lastWindowLoad = DateTime.MinValue;
+        private readonly TimeSpan _windowCacheDuration = TimeSpan.FromSeconds(1);
 
         public static readonly RoutedUICommand CloseWindowCommand = new();
         public static readonly RoutedUICommand SwitchToWindowCommand = new();
@@ -280,14 +283,23 @@ MenuItem menuItem)
                 
                 // Use the lazy loading approach to avoid loading all windows upfront
                 WindowFinder windowFinder = new();
-                
-                // Perform window loading on a background thread
-                _unfilteredWindowList = await Task.Run(() => 
+
+                // Perform window loading on a background thread with a short-lived cache to avoid redundant enumerations
+                _unfilteredWindowList = await Task.Run(() =>
                 {
-                    using var perfWindows = PerfRecorder.Measure("EnumerateWindows");
                     cancellationToken.ThrowIfCancellationRequested();
+
+                    if (_cachedWindowList != null && (DateTime.UtcNow - _lastWindowLoad) < _windowCacheDuration)
+                    {
+                        return new List<AppWindowViewModel>(_cachedWindowList);
+                    }
+
+                    using var perfWindows = PerfRecorder.Measure("EnumerateWindows");
                     var windows = windowFinder.GetWindowsLazy().ToList();
-                    return windows.Select(window => new AppWindowViewModel(window)).ToList();
+                    var viewModels = windows.Select(window => new AppWindowViewModel(window)).ToList();
+                    _cachedWindowList = viewModels;
+                    _lastWindowLoad = DateTime.UtcNow;
+                    return new List<AppWindowViewModel>(viewModels);
                 }, cancellationToken);
                 
                 // Check for cancellation before proceeding
@@ -363,24 +375,43 @@ MenuItem menuItem)
                 {
                     batch.Add(windows[i]);
                 }
+
+                // Precompute formatting off the UI thread
+                var formattedBatch = new List<(AppWindowViewModel vm, string title, string formattedTitle, string processTitle, string formattedProcessTitle)>(batch.Count);
+                foreach (AppWindowViewModel window in batch)
+                {
+                    string title = window.AppWindow.Title ?? string.Empty;
+                    string formattedTitle = null;
+                    if (!string.Equals(window.LastFormattedTitleSource, title, StringComparison.Ordinal))
+                    {
+                        formattedTitle = highlighter.Highlight(new[] { new StringPart(title) });
+                    }
+
+                    string processTitle = window.AppWindow.ProcessTitle ?? string.Empty;
+                    string formattedProcessTitle = null;
+                    if (!string.Equals(window.LastFormattedProcessTitleSource, processTitle, StringComparison.Ordinal))
+                    {
+                        formattedProcessTitle = highlighter.Highlight(new[] { new StringPart(processTitle) });
+                    }
+
+                    formattedBatch.Add((window, title, formattedTitle, processTitle, formattedProcessTitle));
+                }
                 
                 // Update the UI on the dispatcher thread
                 Dispatcher.Invoke(() => 
                 {
-                    foreach (AppWindowViewModel window in batch)
+                    foreach (var item in formattedBatch)
                     {
-                        string title = window.AppWindow.Title ?? string.Empty;
-                        if (!string.Equals(window.LastFormattedTitleSource, title, StringComparison.Ordinal))
+                        if (item.formattedTitle != null)
                         {
-                            window.FormattedTitle = highlighter.Highlight(new[] { new StringPart(title) });
-                            window.LastFormattedTitleSource = title;
+                            item.vm.FormattedTitle = item.formattedTitle;
+                            item.vm.LastFormattedTitleSource = item.title;
                         }
 
-                        string processTitle = window.AppWindow.ProcessTitle ?? string.Empty;
-                        if (!string.Equals(window.LastFormattedProcessTitleSource, processTitle, StringComparison.Ordinal))
+                        if (item.formattedProcessTitle != null)
                         {
-                            window.FormattedProcessTitle = highlighter.Highlight(new[] { new StringPart(processTitle) });
-                            window.LastFormattedProcessTitleSource = processTitle;
+                            item.vm.FormattedProcessTitle = item.formattedProcessTitle;
+                            item.vm.LastFormattedProcessTitleSource = item.processTitle;
                         }
                     }
                 });
@@ -407,21 +438,40 @@ MenuItem menuItem)
             {
                 int end = Math.Min(processedCount + batchSize, windows.Count);
                 
+                var formattedBatch = new List<(AppWindowViewModel vm, string title, string formattedTitle, string processTitle, string formattedProcessTitle)>(end - processedCount);
+
                 for (int i = processedCount; i < end; i++)
                 {
                     AppWindowViewModel window = windows[i];
                     string title = window.AppWindow.Title ?? string.Empty;
+                    string formattedTitle = null;
                     if (!string.Equals(window.LastFormattedTitleSource, title, StringComparison.Ordinal))
                     {
-                        window.FormattedTitle = highlighter.Highlight(new[] { new StringPart(title) });
-                        window.LastFormattedTitleSource = title;
+                        formattedTitle = highlighter.Highlight(new[] { new StringPart(title) });
                     }
 
                     string processTitle = window.AppWindow.ProcessTitle ?? string.Empty;
+                    string formattedProcessTitle = null;
                     if (!string.Equals(window.LastFormattedProcessTitleSource, processTitle, StringComparison.Ordinal))
                     {
-                        window.FormattedProcessTitle = highlighter.Highlight(new[] { new StringPart(processTitle) });
-                        window.LastFormattedProcessTitleSource = processTitle;
+                        formattedProcessTitle = highlighter.Highlight(new[] { new StringPart(processTitle) });
+                    }
+
+                    formattedBatch.Add((window, title, formattedTitle, processTitle, formattedProcessTitle));
+                }
+
+                foreach (var item in formattedBatch)
+                {
+                    if (item.formattedTitle != null)
+                    {
+                        item.vm.FormattedTitle = item.formattedTitle;
+                        item.vm.LastFormattedTitleSource = item.title;
+                    }
+
+                    if (item.formattedProcessTitle != null)
+                    {
+                        item.vm.FormattedProcessTitle = item.formattedProcessTitle;
+                        item.vm.LastFormattedProcessTitleSource = item.processTitle;
                     }
                 }
                 

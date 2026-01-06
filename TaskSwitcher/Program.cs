@@ -83,7 +83,7 @@ namespace TaskSwitcher
             {
                 UseShellExecute = true,
                 WorkingDirectory = Environment.CurrentDirectory,
-                FileName = Assembly.GetEntryAssembly()?.Location ?? Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty,
+                FileName = GetExecutablePath(),
                 Verb = "runas"
             };
 
@@ -128,6 +128,25 @@ namespace TaskSwitcher
             WindowsPrincipal principal = new WindowsPrincipal(id);
 
             return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        private static string GetExecutablePath()
+        {
+            // Environment.ProcessPath is the most reliable way to locate the current executable
+            if (!string.IsNullOrWhiteSpace(Environment.ProcessPath))
+            {
+                return Environment.ProcessPath;
+            }
+
+            // Fallback to MainModule (can be null in some hosting scenarios)
+            string modulePath = Process.GetCurrentProcess().MainModule?.FileName;
+            if (!string.IsNullOrWhiteSpace(modulePath))
+            {
+                return modulePath;
+            }
+
+            // As a last resort, use entry assembly location
+            return Assembly.GetEntryAssembly()?.Location ?? string.Empty;
         }
     }
 }
