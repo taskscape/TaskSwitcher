@@ -39,6 +39,9 @@ namespace TaskSwitcher
             get { return AppWindow.HWnd; }
         }
 
+        internal string LastFormattedTitleSource { get; set; }
+        internal string LastFormattedProcessTitleSource { get; set; }
+
         private string _formattedTitle;
 
         public string FormattedTitle

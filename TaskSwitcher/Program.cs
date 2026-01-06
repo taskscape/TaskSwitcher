@@ -35,11 +35,13 @@ namespace TaskSwitcher
         [STAThread]
         private static void Main()
         {
-            RunAsAdministratorIfConfigured();
-
-            using (Mutex mutex = new Mutex(false, mutex_id))
+            using (PerfRecorder.Measure("AppStartup"))
             {
-                bool hasHandle = false;
+                RunAsAdministratorIfConfigured();
+
+                using (Mutex mutex = new Mutex(false, mutex_id))
+                {
+                    bool hasHandle = false;
                 try
                 {
                     try
@@ -70,10 +72,12 @@ namespace TaskSwitcher
                         mutex.ReleaseMutex();
                 }
             }
+            }
         }
 
         private static void RunAsAdministratorIfConfigured()
         {
+            using var perf = PerfRecorder.Measure("RunAsAdministratorIfConfigured");
             if (!RunAsAdminRequested() || IsRunAsAdmin()) return;
             ProcessStartInfo proc = new ProcessStartInfo
             {
@@ -110,6 +114,7 @@ namespace TaskSwitcher
 
         private static void MigrateUserSettings()
         {
+            using var perf = PerfRecorder.Measure("MigrateUserSettings");
             if (!Settings.Default.FirstRun) return;
 
             Settings.Default.Upgrade();

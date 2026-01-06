@@ -235,6 +235,7 @@ MenuItem menuItem)
 
         private static async Task<Version> GetLatestVersion()
         {
+            using var perf = PerfRecorder.Measure("GetLatestVersion");
             try
             {
                 string versionAsString = await HttpClient.GetStringAsync(
@@ -261,6 +262,7 @@ MenuItem menuItem)
         /// </summary>
         private async void LoadData(InitialFocus focus)
         {
+            using var perf = PerfRecorder.Measure("LoadData");
             // Cancel any previous loading operation
             if (_loadCancellationTokenSource != null)
             {
@@ -282,8 +284,10 @@ MenuItem menuItem)
                 // Perform window loading on a background thread
                 _unfilteredWindowList = await Task.Run(() => 
                 {
+                    using var perfWindows = PerfRecorder.Measure("EnumerateWindows");
                     cancellationToken.ThrowIfCancellationRequested();
-                    return windowFinder.GetWindowsLazy().Select(window => new AppWindowViewModel(window)).ToList();
+                    var windows = windowFinder.GetWindowsLazy().ToList();
+                    return windows.Select(window => new AppWindowViewModel(window)).ToList();
                 }, cancellationToken);
                 
                 // Check for cancellation before proceeding
@@ -340,8 +344,10 @@ MenuItem menuItem)
         /// </summary>
         private void FormatWindowTitles(List<AppWindowViewModel> windows, System.Threading.CancellationToken cancellationToken)
         {
+            using var perf = PerfRecorder.Measure("FormatWindowTitles.Async");
             const int batchSize = 10;
             int processedCount = 0;
+            XamlHighlighter highlighter = new();
             
             while (processedCount < windows.Count)
             {
@@ -363,8 +369,19 @@ MenuItem menuItem)
                 {
                     foreach (AppWindowViewModel window in batch)
                     {
-                        window.FormattedTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.Title) });
-                        window.FormattedProcessTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.ProcessTitle) });
+                        string title = window.AppWindow.Title ?? string.Empty;
+                        if (!string.Equals(window.LastFormattedTitleSource, title, StringComparison.Ordinal))
+                        {
+                            window.FormattedTitle = highlighter.Highlight(new[] { new StringPart(title) });
+                            window.LastFormattedTitleSource = title;
+                        }
+
+                        string processTitle = window.AppWindow.ProcessTitle ?? string.Empty;
+                        if (!string.Equals(window.LastFormattedProcessTitleSource, processTitle, StringComparison.Ordinal))
+                        {
+                            window.FormattedProcessTitle = highlighter.Highlight(new[] { new StringPart(processTitle) });
+                            window.LastFormattedProcessTitleSource = processTitle;
+                        }
                     }
                 });
                 
@@ -380,8 +397,10 @@ MenuItem menuItem)
         /// </summary>
         private void FormatWindowTitles(List<AppWindowViewModel> windows)
         {
+            using var perf = PerfRecorder.Measure("FormatWindowTitles.Dispatcher");
             const int batchSize = 10;
             int processedCount = 0;
+            XamlHighlighter highlighter = new();
             
             Action processNextBatch = null;
             processNextBatch = () =>
@@ -391,8 +410,19 @@ MenuItem menuItem)
                 for (int i = processedCount; i < end; i++)
                 {
                     AppWindowViewModel window = windows[i];
-                    window.FormattedTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.Title) });
-                    window.FormattedProcessTitle = new XamlHighlighter().Highlight(new[] { new StringPart(window.AppWindow.ProcessTitle) });
+                    string title = window.AppWindow.Title ?? string.Empty;
+                    if (!string.Equals(window.LastFormattedTitleSource, title, StringComparison.Ordinal))
+                    {
+                        window.FormattedTitle = highlighter.Highlight(new[] { new StringPart(title) });
+                        window.LastFormattedTitleSource = title;
+                    }
+
+                    string processTitle = window.AppWindow.ProcessTitle ?? string.Empty;
+                    if (!string.Equals(window.LastFormattedProcessTitleSource, processTitle, StringComparison.Ordinal))
+                    {
+                        window.FormattedProcessTitle = highlighter.Highlight(new[] { new StringPart(processTitle) });
+                        window.LastFormattedProcessTitleSource = processTitle;
+                    }
                 }
                 
                 processedCount = end;
@@ -736,6 +766,7 @@ MenuItem menuItem)
         
         private async void TextChanged(object sender, TextChangedEventArgs args)
         {
+            using var perf = PerfRecorder.Measure("FilterWindows");
             if (!tb.IsEnabled)
             {
                 return;
@@ -754,6 +785,8 @@ MenuItem menuItem)
 
             try
             {
+                await Task.Delay(100, cancellationToken); // debounce rapid typing
+
                 string query = tb.Text;
                 
                 // Show some immediate feedback to the user
