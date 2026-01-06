@@ -770,12 +770,13 @@ MenuItem menuItem)
                 };
 
                 // Perform filtering on a background thread
+                WindowFilterer windowFilterer = new();
                 List<FilterResult<AppWindowViewModel>> filterResults = await Task.Run(() => 
                 {
                     // Check for cancellation before starting work
                     cancellationToken.ThrowIfCancellationRequested();
                     
-                    return WindowFilterer.Filter(context, query).ToList();
+                    return windowFilterer.Filter(context, query).ToList();
                 }, cancellationToken);
                 
                 // Check for cancellation before formatting titles
