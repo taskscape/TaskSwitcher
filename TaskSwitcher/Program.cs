@@ -79,9 +79,14 @@ namespace TaskSwitcher
             {
                 UseShellExecute = true,
                 WorkingDirectory = Environment.CurrentDirectory,
-                FileName = Assembly.GetEntryAssembly().CodeBase,
+                FileName = Assembly.GetEntryAssembly()?.Location ?? Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty,
                 Verb = "runas"
             };
+
+            if (string.IsNullOrEmpty(proc.FileName))
+            {
+                return;
+            }
 
             Process.Start(proc);
             Environment.Exit(0);
