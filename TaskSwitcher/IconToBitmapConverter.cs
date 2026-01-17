@@ -14,10 +14,34 @@ namespace TaskSwitcher
                 return null;
             }
 
+            try
+            {
+                using (MemoryStream memory = new MemoryStream())
+                {
+                    Bitmap bitmap = icon.ToBitmap();
+                    bitmap.Save(memory, ImageFormat.Png);
+                    memory.Position = 0;
+                    BitmapImage bitmapImage = new BitmapImage();
+                    bitmapImage.BeginInit();
+                    bitmapImage.StreamSource = memory;
+                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmapImage.EndInit();
+                    return bitmapImage;
+                }
+            }
+            catch
+            {
+                // Return a blank BitmapImage instead of System.Drawing.Bitmap
+                return CreateEmptyBitmapImage(16, 16);
+            }
+        }
+
+        private BitmapImage CreateEmptyBitmapImage(int width, int height)
+        {
+            using (Bitmap emptyBitmap = new Bitmap(width, height))
             using (MemoryStream memory = new MemoryStream())
             {
-                Bitmap bitmap = icon.ToBitmap();
-                bitmap.Save(memory, ImageFormat.Png);
+                emptyBitmap.Save(memory, ImageFormat.Png);
                 memory.Position = 0;
                 BitmapImage bitmapImage = new BitmapImage();
                 bitmapImage.BeginInit();
