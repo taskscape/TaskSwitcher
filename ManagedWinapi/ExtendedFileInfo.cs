@@ -76,7 +76,19 @@ namespace ManagedWinapi
 
             if (shellFileInfo.hIcon == IntPtr.Zero) return null;
 
-            Icon myIcon = Icon.FromHandle(shellFileInfo.hIcon);
+            Icon myIcon = null;
+            try
+            {
+                myIcon = Icon.FromHandle(shellFileInfo.hIcon);
+            }
+            catch (ArgumentException)
+            {
+                // Invalid icon handle
+            }
+            catch (ExternalException)
+            {
+                // GDI+ error occurred while creating the icon
+            }
             return myIcon;
         }
 

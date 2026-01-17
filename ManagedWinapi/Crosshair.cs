@@ -38,9 +38,24 @@ namespace ManagedWinapi
         public Crosshair()
         {
             InitializeComponent();
-            myImage = new Bitmap(System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("ManagedWinapi.crosshair.ico"));
-            myCursor = new Cursor(System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("ManagedWinapi.crosshair.ico"));
-            dragger.Image = myImage;
+            try
+            {
+                myImage = new Bitmap(System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("ManagedWinapi.crosshair.ico"));
+                myCursor = new Cursor(System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("ManagedWinapi.crosshair.ico"));
+                dragger.Image = myImage;
+            }
+            catch (ArgumentException)
+            {
+                // Invalid stream or bitmap creation failed
+                myImage = null;
+                myCursor = Cursors.Cross;
+            }
+            catch (ExternalException)
+            {
+                // GDI+ error
+                myImage = null;
+                myCursor = Cursors.Cross;
+            }
         }
 
         private void dragger_MouseDown(object sender, MouseEventArgs e)

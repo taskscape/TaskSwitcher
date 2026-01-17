@@ -1,7 +1,9 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Drawing;
+using System.IO;
 using System.Runtime.Caching;
+using System.Runtime.InteropServices;
 
 namespace TaskSwitcher.Core
 {
@@ -64,12 +66,34 @@ namespace TaskSwitcher.Core
 
                 if (response != IntPtr.Zero)
                 {
-                    icon = Icon.FromHandle(response);
+                    try
+                    {
+                        icon = Icon.FromHandle(response);
+                    }
+                    catch (ArgumentException)
+                    {
+                        // Invalid icon handle
+                    }
+                    catch (ExternalException)
+                    {
+                        // GDI+ error occurred while creating the icon
+                    }
                 }
                 else
                 {
                     string executablePath = window.ExecutablePath;
-                    icon = Icon.ExtractAssociatedIcon(executablePath);
+                    try
+                    {
+                        icon = Icon.ExtractAssociatedIcon(executablePath);
+                    }
+                    catch (ArgumentException)
+                    {
+                        // Invalid executable path or file does not exist
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        // Executable file not found
+                    }
                 }
             }
             catch (Win32Exception)
