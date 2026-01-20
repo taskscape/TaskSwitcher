@@ -9,6 +9,12 @@ namespace TaskSwitcher.Core
         // Threshold for window count above which parallel processing will be used
         private const int ParallelProcessingThreshold = 30;
 
+        // Cached matcher instances - these are stateless and thread-safe
+        private static readonly StartsWithMatcher StartsWithMatcherInstance = new();
+        private static readonly ContainsMatcher ContainsMatcherInstance = new();
+        private static readonly SignificantCharactersMatcher SignificantCharactersMatcherInstance = new();
+        private static readonly IndividualCharactersMatcher IndividualCharactersMatcherInstance = new();
+
         public IEnumerable<FilterResult<T>> Filter<T>(WindowFilterContext<T> context, string query)
             where T : IWindowText
         {
@@ -94,17 +100,12 @@ namespace TaskSwitcher.Core
 
         private static List<MatchResult> Score(string title, string filterText)
         {
-            StartsWithMatcher startsWithMatcher = new();
-            ContainsMatcher containsMatcher = new();
-            SignificantCharactersMatcher significantCharactersMatcher = new();
-            IndividualCharactersMatcher individualCharactersMatcher = new();
-
             List<MatchResult> results =
             [
-                startsWithMatcher.Evaluate(title, filterText),
-                significantCharactersMatcher.Evaluate(title, filterText),
-                containsMatcher.Evaluate(title, filterText),
-                individualCharactersMatcher.Evaluate(title, filterText)
+                StartsWithMatcherInstance.Evaluate(title, filterText),
+                SignificantCharactersMatcherInstance.Evaluate(title, filterText),
+                ContainsMatcherInstance.Evaluate(title, filterText),
+                IndividualCharactersMatcherInstance.Evaluate(title, filterText)
             ];
 
             return results;
