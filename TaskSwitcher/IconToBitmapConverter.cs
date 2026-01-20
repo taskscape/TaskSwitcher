@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Windows.Media.Imaging;
@@ -18,7 +19,7 @@ namespace TaskSwitcher
             {
                 using (MemoryStream memory = new MemoryStream())
                 {
-                    Bitmap bitmap = icon.ToBitmap();
+                    using Bitmap bitmap = icon.ToBitmap();
                     bitmap.Save(memory, ImageFormat.Png);
                     memory.Position = 0;
                     BitmapImage bitmapImage = new BitmapImage();
@@ -29,9 +30,10 @@ namespace TaskSwitcher
                     return bitmapImage;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Return a blank BitmapImage instead of System.Drawing.Bitmap
+                // Log the exception when logging is enabled, then return a blank BitmapImage
+                DiagnosticLogger.LogException("IconToBitmapImageConverter.Convert", ex);
                 return CreateEmptyBitmapImage(16, 16);
             }
         }

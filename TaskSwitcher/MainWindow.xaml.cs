@@ -250,9 +250,10 @@ MenuItem menuItem)
                     return newVersion;
                 }
             }
-            catch (HttpRequestException)
+            catch (HttpRequestException ex)
             {
-                // Log or handle the exception
+                // Log the exception when logging is enabled
+                DiagnosticLogger.LogException("MainWindow.GetLatestVersion", ex);
             }
             return null;
         }

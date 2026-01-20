@@ -41,9 +41,10 @@ namespace TaskSwitcher
                     File.AppendAllText(LogFilePath, line + Environment.NewLine);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Never let diagnostics break the app.
+                // Never let diagnostics break the app, but log the failure when possible.
+                DiagnosticLogger.LogException("PerfRecorder.Write", ex);
             }
         }
 
