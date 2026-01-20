@@ -113,8 +113,11 @@ namespace TaskSwitcher.Core
         /// <summary>
         /// Gets or sets a generic cached value by key.
         /// </summary>
+        /// <exception cref="ArgumentException">Thrown when key is null or whitespace.</exception>
         public T GetOrSet<T>(string key, Func<T> factory, TimeSpan expiration) where T : class
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
             var cache = _iconCache;
             if (cache.Get(key) is T cached)
             {
@@ -132,8 +135,11 @@ namespace TaskSwitcher.Core
         /// <summary>
         /// Gets a cached value by key, or default if not found.
         /// </summary>
+        /// <exception cref="ArgumentException">Thrown when key is null or whitespace.</exception>
         public bool TryGetValue<T>(string key, out T value)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
             var cache = _iconCache;
             var cached = cache.Get(key);
             if (cached is T typedValue)
@@ -148,9 +154,12 @@ namespace TaskSwitcher.Core
         /// <summary>
         /// Sets a cached reference type value by key with the specified expiration.
         /// </summary>
+        /// <exception cref="ArgumentException">Thrown when key is null or whitespace.</exception>
         public void Set<T>(string key, T value, TimeSpan expiration) where T : class
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
             if (value == null) return;
+
             var cache = _iconCache;
             cache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
         }
@@ -158,8 +167,11 @@ namespace TaskSwitcher.Core
         /// <summary>
         /// Sets a cached value type by key with the specified expiration.
         /// </summary>
+        /// <exception cref="ArgumentException">Thrown when key is null or whitespace.</exception>
         public void SetValue<T>(string key, T value, TimeSpan expiration) where T : struct
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
             var cache = _iconCache;
             cache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
         }
