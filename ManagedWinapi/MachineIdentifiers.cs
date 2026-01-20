@@ -59,7 +59,7 @@ namespace ManagedWinapi
             out IntPtr /* out ref POLICY_ACCOUNT_DOMAIN_INFO */ Buffer);
 
         [DllImport("advapi32.dll", SetLastError = true, PreserveSig = false)]
-        private static extern void LsaFreeMemory(ref POLICY_ACCOUNT_DOMAIN_INFO pBuffer);
+        private static extern void LsaFreeMemory(IntPtr pBuffer);
 
         [DllImport("advapi32.dll", SetLastError = true, PreserveSig = false)]
         private static extern void LsaClose(IntPtr ObjectHandle);
@@ -75,17 +75,35 @@ namespace ManagedWinapi
             get
             {
                 int objectAttributes = 0;
-                IntPtr policyHandle;
-                IntPtr pInfo;
-                POLICY_ACCOUNT_DOMAIN_INFO info;
-                LsaOpenPolicy(IntPtr.Zero, ref objectAttributes, POLICY_VIEW_LOCAL_INFORMATION,
-                    out policyHandle);
-                LsaQueryInformationPolicy(policyHandle, PolicyAccountDomainInformation, out pInfo);
-                info = (POLICY_ACCOUNT_DOMAIN_INFO)Marshal.PtrToStructure(pInfo, typeof(POLICY_ACCOUNT_DOMAIN_INFO));
-                SecurityIdentifier sid = new SecurityIdentifier(info.DomainSid);
-                LsaFreeMemory(ref info);
-                LsaClose(policyHandle);
-                return sid;
+                IntPtr policyHandle = IntPtr.Zero;
+                IntPtr pInfo = IntPtr.Zero;
+
+                try
+                {
+                    LsaOpenPolicy(IntPtr.Zero, ref objectAttributes, POLICY_VIEW_LOCAL_INFORMATION,
+                        out policyHandle);
+
+                    LsaQueryInformationPolicy(policyHandle, PolicyAccountDomainInformation, out pInfo);
+
+                    POLICY_ACCOUNT_DOMAIN_INFO info = (POLICY_ACCOUNT_DOMAIN_INFO)Marshal.PtrToStructure(
+                        pInfo, typeof(POLICY_ACCOUNT_DOMAIN_INFO));
+
+                    return new SecurityIdentifier(info.DomainSid);
+                }
+                finally
+                {
+                    // Always free the information buffer if it was allocated
+                    if (pInfo != IntPtr.Zero)
+                    {
+                        LsaFreeMemory(pInfo);
+                    }
+
+                    // Always close the policy handle if it was opened
+                    if (policyHandle != IntPtr.Zero)
+                    {
+                        LsaClose(policyHandle);
+                    }
+                }
             }
         }
 
