@@ -14,8 +14,9 @@ namespace TaskSwitcher.Core
         
         public static IconCacheService Instance => LazyInstance.Value;
 
-        private readonly MemoryCache _iconCache;
+        private MemoryCache _iconCache;
         private readonly TimeProvider _timeProvider;
+        private readonly object _cacheLock = new();
         
         // Cache configuration
         private static readonly TimeSpan ShortCacheDuration = TimeSpan.FromSeconds(5);
@@ -134,11 +135,16 @@ namespace TaskSwitcher.Core
         }
 
         /// <summary>
-        /// Clears all cached icons.
+        /// Clears all cached icons and recreates the cache.
         /// </summary>
         public void Clear()
         {
-            _iconCache.Dispose();
+            lock (_cacheLock)
+            {
+                var oldCache = _iconCache;
+                _iconCache = new MemoryCache("UnifiedWindowIconCache");
+                oldCache.Dispose();
+            }
         }
 
         private static string BuildIconCacheKey(IntPtr windowHandle, WindowIconSize size) 
