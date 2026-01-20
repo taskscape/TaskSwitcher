@@ -1,6 +1,9 @@
 using System;
 using System.Drawing;
 using System.Runtime.Caching;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("Core.UnitTests")]
 
 namespace TaskSwitcher.Core
 {
@@ -30,7 +33,7 @@ namespace TaskSwitcher.Core
         /// Constructor for testing with a custom TimeProvider.
         /// </summary>
         /// <param name="timeProvider">The time provider to use for cache expiration calculations.</param>
-        public IconCacheService(TimeProvider timeProvider)
+        internal IconCacheService(TimeProvider timeProvider)
         {
             _timeProvider = timeProvider ?? TimeProvider.System;
             _iconCache = new MemoryCache("UnifiedWindowIconCache");
