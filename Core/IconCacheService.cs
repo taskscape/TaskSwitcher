@@ -186,10 +186,48 @@ namespace TaskSwitcher.Core
             oldCache.Dispose();
         }
 
-        private static string BuildIconCacheKey(IntPtr windowHandle, WindowIconSize size) 
-            => $"Icon-{windowHandle}-{size}";
+        private static string BuildIconCacheKey(IntPtr windowHandle, WindowIconSize size)
+        {
+            const string Prefix = "Icon-";
+            return BuildCacheKey(Prefix, windowHandle, size);
+        }
 
-        private static string BuildBitmapCacheKey(IntPtr windowHandle, WindowIconSize size) 
-            => $"BitmapImage-{windowHandle}-{size}";
+        private static string BuildBitmapCacheKey(IntPtr windowHandle, WindowIconSize size)
+        {
+            const string Prefix = "BitmapImage-";
+            return BuildCacheKey(Prefix, windowHandle, size);
+        }
+
+        private static string BuildCacheKey(string prefix, IntPtr windowHandle, WindowIconSize size)
+        {
+            var sizeString = GetSizeString(size);
+            var handle = (nint)windowHandle;
+
+            return string.Create(
+                prefix.Length + 20 + 1 + sizeString.Length, // 20 = max nint digits, 1 = separator
+                (prefix, handle, sizeString),
+                static (span, state) =>
+                {
+                    state.prefix.AsSpan().CopyTo(span);
+                    int pos = state.prefix.Length;
+
+                    state.handle.TryFormat(span[pos..], out int written);
+                    pos += written;
+
+                    span[pos++] = '-';
+
+                    state.sizeString.AsSpan().CopyTo(span[pos..]);
+                    pos += state.sizeString.Length;
+
+                    // Truncate to actual length (string.Create handles this via the span)
+                });
+        }
+
+        private static string GetSizeString(WindowIconSize size) => size switch
+        {
+            WindowIconSize.Small => "Small",
+            WindowIconSize.Large => "Large",
+            _ => size.ToString()
+        };
     }
 }
