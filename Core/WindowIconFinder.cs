@@ -2,7 +2,6 @@
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
-using System.Runtime.Caching;
 using System.Runtime.InteropServices;
 
 namespace TaskSwitcher.Core
@@ -15,38 +14,30 @@ namespace TaskSwitcher.Core
 
     public class WindowIconFinder
     {
-        private static readonly MemoryCache IconCache = new MemoryCache("WindowIcons");
-        
+        private readonly IconCacheService _cache = IconCacheService.Instance;
+
         public Icon Find(AppWindow window, WindowIconSize size)
         {
-            // Create a unique cache key based on window handle and icon size
-            string cacheKey = $"Icon-{window.HWnd}-{size}";
-            
             // Try to get the icon from cache
-            if (IconCache.Contains(cacheKey))
+            Icon cachedIcon = _cache.GetIcon(window.HWnd, size);
+            if (cachedIcon != null)
             {
-                return (Icon)IconCache.Get(cacheKey);
+                return cachedIcon;
             }
-            
+
             // If not in cache, find the icon using the original implementation
             Icon icon = FindIconImplementation(window, size);
-            
-            // Cache the icon with a sliding expiration
+
+            // Cache the icon
             if (icon != null)
             {
-                // Cache for 10 minutes with a sliding expiration policy
-                CacheItemPolicy policy = new CacheItemPolicy
-                {
-                    SlidingExpiration = TimeSpan.FromMinutes(10)
-                };
-                
-                IconCache.Set(cacheKey, icon, policy);
+                _cache.SetIcon(window.HWnd, size, icon);
             }
-            
+
             return icon;
         }
-        
-        private Icon FindIconImplementation(AppWindow window, WindowIconSize size)
+
+        private static Icon FindIconImplementation(AppWindow window, WindowIconSize size)
         {
             Icon icon = null;
             try

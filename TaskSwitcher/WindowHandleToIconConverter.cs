@@ -1,7 +1,6 @@
 using System;
 using System.Drawing;
 using System.Globalization;
-using System.Runtime.Caching;
 using System.Windows.Data;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
@@ -11,7 +10,11 @@ namespace TaskSwitcher
 {
     public class WindowHandleToIconConverter : IValueConverter
     {
+        private static readonly TimeSpan SettingsCacheDuration = TimeSpan.FromMinutes(120);
+        private const string SmallTaskbarIconsCacheKey = "SmallTaskbarIcons";
+
         private readonly IconToBitmapImageConverter _iconToBitmapConverter;
+        private readonly IconCacheService _cache = IconCacheService.Instance;
 
         public WindowHandleToIconConverter()
         {
@@ -20,44 +23,50 @@ namespace TaskSwitcher
 
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            IntPtr handle = (IntPtr) value;
-            string key = "IconImage-" + handle;
-            string shortCacheKey = key + "-shortCache";
-            string longCacheKey = key + "-longCache";
-            if (MemoryCache.Default.Get(shortCacheKey) is BitmapImage iconImage) return iconImage;
+            IntPtr handle = (IntPtr)value;
+            WindowIconSize iconSize = ShouldUseSmallTaskbarIcons() ? WindowIconSize.Small : WindowIconSize.Large;
+
+            // Try to get from unified cache first
+            if (_cache.GetBitmapImage(handle, iconSize) is BitmapImage cachedImage)
+            {
+                return cachedImage;
+            }
+
+            // Create new icon and cache it
             AppWindow window = new AppWindow(handle);
-            Icon icon = ShouldUseSmallTaskbarIcons() ? window.SmallWindowIcon : window.LargeWindowIcon;
-            iconImage = _iconToBitmapConverter.Convert(icon) ?? new BitmapImage();
-            MemoryCache.Default.Set(shortCacheKey, iconImage, DateTimeOffset.Now.AddSeconds(5));
-            MemoryCache.Default.Set(longCacheKey, iconImage, DateTimeOffset.Now.AddMinutes(120));
+            Icon icon = iconSize == WindowIconSize.Small ? window.SmallWindowIcon : window.LargeWindowIcon;
+            BitmapImage iconImage = _iconToBitmapConverter.Convert(icon) ?? new BitmapImage();
+
+            _cache.SetBitmapImage(handle, iconSize, iconImage);
 
             return iconImage;
         }
 
-        private static bool ShouldUseSmallTaskbarIcons()
+        private bool ShouldUseSmallTaskbarIcons()
         {
-            string cacheKey = "SmallTaskbarIcons";
-
-            if (MemoryCache.Default.Get(cacheKey) is bool cachedSetting)
+            if (_cache.TryGetValue<bool>(SmallTaskbarIconsCacheKey, out bool cachedSetting))
             {
                 return cachedSetting;
             }
 
-            using (
-                RegistryKey registryKey =
-                    Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"))
-            {
-                object value = registryKey?.GetValue("TaskbarSmallIcons");
-                if (value == null)
-                {
-                    return false;
-                }
+            bool smallTaskbarIcons = ReadSmallTaskbarIconsSetting();
+            _cache.SetValue(SmallTaskbarIconsCacheKey, smallTaskbarIcons, SettingsCacheDuration);
+            return smallTaskbarIcons;
+        }
 
-                int.TryParse(value.ToString(), out int intValue);
-                bool smallTaskbarIcons = intValue == 1;
-                MemoryCache.Default.Set(cacheKey, smallTaskbarIcons, DateTimeOffset.Now.AddMinutes(120));
-                return smallTaskbarIcons;
+        private static bool ReadSmallTaskbarIconsSetting()
+        {
+            using RegistryKey registryKey = Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced");
+
+            object value = registryKey?.GetValue("TaskbarSmallIcons");
+            if (value == null)
+            {
+                return false;
             }
+
+            int.TryParse(value.ToString(), out int intValue);
+            return intValue == 1;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
