@@ -75,39 +75,38 @@ namespace TaskSwitcher.Core
         }
 
         /// <summary>
+        /// Callback to dispose resources when removed from cache if they implement IDisposable.
+        /// </summary>
+        private static void DisposeOnRemoval(CacheEntryRemovedArguments args)
+        {
+            (args.CacheItem.Value as IDisposable)?.Dispose();
+        }
+
+        /// <summary>
         /// Gets a cached BitmapImage by window handle and size, or null if not cached.
-        /// Falls back to long-lived cache if short-lived cache has expired.
         /// </summary>
         public object GetBitmapImage(IntPtr windowHandle, WindowIconSize size)
         {
             var cache = _iconCache;
-            string shortCacheKey = BuildBitmapCacheKey(windowHandle, size);
-            var cached = cache.Get(shortCacheKey);
-            
-            if (cached != null)
-            {
-                return cached;
-            }
-
-            // Fallback to long-lived cache
-            string longCacheKey = shortCacheKey + "-long";
-            return cache.Get(longCacheKey);
+            string cacheKey = BuildBitmapCacheKey(windowHandle, size);
+            return cache.Get(cacheKey);
         }
 
         /// <summary>
-        /// Caches a BitmapImage by window handle and size with short and long expiration.
+        /// Caches a BitmapImage by window handle and size with sliding expiration.
         /// </summary>
         public void SetBitmapImage(IntPtr windowHandle, WindowIconSize size, object bitmapImage)
         {
             if (bitmapImage == null) return;
 
             var cache = _iconCache;
-            string shortCacheKey = BuildBitmapCacheKey(windowHandle, size);
-            string longCacheKey = shortCacheKey + "-long";
-
-            DateTimeOffset now = _timeProvider.GetUtcNow();
-            cache.Set(shortCacheKey, bitmapImage, now.Add(ShortCacheDuration));
-            cache.Set(longCacheKey, bitmapImage, now.Add(LongCacheDuration));
+            string cacheKey = BuildBitmapCacheKey(windowHandle, size);
+            var policy = new CacheItemPolicy
+            {
+                SlidingExpiration = LongCacheDuration,
+                RemovedCallback = DisposeOnRemoval
+            };
+            cache.Set(cacheKey, bitmapImage, policy);
         }
 
         /// <summary>
