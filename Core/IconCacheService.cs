@@ -15,13 +15,23 @@ namespace TaskSwitcher.Core
         public static IconCacheService Instance => LazyInstance.Value;
 
         private readonly MemoryCache _iconCache;
+        private readonly TimeProvider _timeProvider;
         
         // Cache configuration
         private static readonly TimeSpan ShortCacheDuration = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan LongCacheDuration = TimeSpan.FromMinutes(10);
 
-        private IconCacheService()
+        private IconCacheService() : this(TimeProvider.System)
         {
+        }
+
+        /// <summary>
+        /// Constructor for testing with a custom TimeProvider.
+        /// </summary>
+        /// <param name="timeProvider">The time provider to use for cache expiration calculations.</param>
+        public IconCacheService(TimeProvider timeProvider)
+        {
+            _timeProvider = timeProvider ?? TimeProvider.System;
             _iconCache = new MemoryCache("UnifiedWindowIconCache");
         }
 
@@ -68,8 +78,9 @@ namespace TaskSwitcher.Core
             string shortCacheKey = BuildBitmapCacheKey(windowHandle, size);
             string longCacheKey = shortCacheKey + "-long";
 
-            _iconCache.Set(shortCacheKey, bitmapImage, DateTimeOffset.Now.Add(ShortCacheDuration));
-            _iconCache.Set(longCacheKey, bitmapImage, DateTimeOffset.Now.Add(LongCacheDuration));
+            DateTimeOffset now = _timeProvider.GetUtcNow();
+            _iconCache.Set(shortCacheKey, bitmapImage, now.Add(ShortCacheDuration));
+            _iconCache.Set(longCacheKey, bitmapImage, now.Add(LongCacheDuration));
         }
 
         /// <summary>
@@ -85,7 +96,7 @@ namespace TaskSwitcher.Core
             T value = factory();
             if (value != null)
             {
-                _iconCache.Set(key, value, DateTimeOffset.Now.Add(expiration));
+                _iconCache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
             }
             return value;
         }
@@ -111,7 +122,7 @@ namespace TaskSwitcher.Core
         public void Set<T>(string key, T value, TimeSpan expiration) where T : class
         {
             if (value == null) return;
-            _iconCache.Set(key, value, DateTimeOffset.Now.Add(expiration));
+            _iconCache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
         }
 
         /// <summary>
@@ -119,7 +130,7 @@ namespace TaskSwitcher.Core
         /// </summary>
         public void SetValue<T>(string key, T value, TimeSpan expiration) where T : struct
         {
-            _iconCache.Set(key, value, DateTimeOffset.Now.Add(expiration));
+            _iconCache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
         }
 
         /// <summary>
