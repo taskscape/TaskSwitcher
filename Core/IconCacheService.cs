@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Runtime.Caching;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 [assembly: InternalsVisibleTo("Core.UnitTests")]
 
@@ -17,9 +18,8 @@ namespace TaskSwitcher.Core
         
         public static IconCacheService Instance => LazyInstance.Value;
 
-        private MemoryCache _iconCache;
+        private volatile MemoryCache _iconCache;
         private readonly TimeProvider _timeProvider;
-        private readonly object _cacheLock = new();
         
         // Cache configuration
         private static readonly TimeSpan ShortCacheDuration = TimeSpan.FromSeconds(5);
@@ -44,8 +44,9 @@ namespace TaskSwitcher.Core
         /// </summary>
         public Icon GetIcon(IntPtr windowHandle, WindowIconSize size)
         {
+            var cache = _iconCache;
             string cacheKey = BuildIconCacheKey(windowHandle, size);
-            return _iconCache.Get(cacheKey) as Icon;
+            return cache.Get(cacheKey) as Icon;
         }
 
         /// <summary>
@@ -55,13 +56,14 @@ namespace TaskSwitcher.Core
         {
             if (icon == null) return;
 
+            var cache = _iconCache;
             string cacheKey = BuildIconCacheKey(windowHandle, size);
             var policy = new CacheItemPolicy
             {
                 SlidingExpiration = LongCacheDuration,
                 RemovedCallback = DisposeIconOnRemoval
             };
-            _iconCache.Set(cacheKey, icon, policy);
+            cache.Set(cacheKey, icon, policy);
         }
 
         /// <summary>
@@ -78,8 +80,9 @@ namespace TaskSwitcher.Core
         /// </summary>
         public object GetBitmapImage(IntPtr windowHandle, WindowIconSize size)
         {
+            var cache = _iconCache;
             string shortCacheKey = BuildBitmapCacheKey(windowHandle, size);
-            var cached = _iconCache.Get(shortCacheKey);
+            var cached = cache.Get(shortCacheKey);
             
             if (cached != null)
             {
@@ -88,7 +91,7 @@ namespace TaskSwitcher.Core
 
             // Fallback to long-lived cache
             string longCacheKey = shortCacheKey + "-long";
-            return _iconCache.Get(longCacheKey);
+            return cache.Get(longCacheKey);
         }
 
         /// <summary>
@@ -98,12 +101,13 @@ namespace TaskSwitcher.Core
         {
             if (bitmapImage == null) return;
 
+            var cache = _iconCache;
             string shortCacheKey = BuildBitmapCacheKey(windowHandle, size);
             string longCacheKey = shortCacheKey + "-long";
 
             DateTimeOffset now = _timeProvider.GetUtcNow();
-            _iconCache.Set(shortCacheKey, bitmapImage, now.Add(ShortCacheDuration));
-            _iconCache.Set(longCacheKey, bitmapImage, now.Add(LongCacheDuration));
+            cache.Set(shortCacheKey, bitmapImage, now.Add(ShortCacheDuration));
+            cache.Set(longCacheKey, bitmapImage, now.Add(LongCacheDuration));
         }
 
         /// <summary>
@@ -111,7 +115,8 @@ namespace TaskSwitcher.Core
         /// </summary>
         public T GetOrSet<T>(string key, Func<T> factory, TimeSpan expiration) where T : class
         {
-            if (_iconCache.Get(key) is T cached)
+            var cache = _iconCache;
+            if (cache.Get(key) is T cached)
             {
                 return cached;
             }
@@ -119,7 +124,7 @@ namespace TaskSwitcher.Core
             T value = factory();
             if (value != null)
             {
-                _iconCache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
+                cache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
             }
             return value;
         }
@@ -129,7 +134,8 @@ namespace TaskSwitcher.Core
         /// </summary>
         public bool TryGetValue<T>(string key, out T value)
         {
-            var cached = _iconCache.Get(key);
+            var cache = _iconCache;
+            var cached = cache.Get(key);
             if (cached is T typedValue)
             {
                 value = typedValue;
@@ -145,7 +151,8 @@ namespace TaskSwitcher.Core
         public void Set<T>(string key, T value, TimeSpan expiration) where T : class
         {
             if (value == null) return;
-            _iconCache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
+            var cache = _iconCache;
+            cache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
         }
 
         /// <summary>
@@ -153,7 +160,8 @@ namespace TaskSwitcher.Core
         /// </summary>
         public void SetValue<T>(string key, T value, TimeSpan expiration) where T : struct
         {
-            _iconCache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
+            var cache = _iconCache;
+            cache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
         }
 
         /// <summary>
@@ -161,12 +169,9 @@ namespace TaskSwitcher.Core
         /// </summary>
         public void Clear()
         {
-            lock (_cacheLock)
-            {
-                var oldCache = _iconCache;
-                _iconCache = new MemoryCache("UnifiedWindowIconCache");
-                oldCache.Dispose();
-            }
+            var newCache = new MemoryCache("UnifiedWindowIconCache");
+            var oldCache = Interlocked.Exchange(ref _iconCache, newCache);
+            oldCache.Dispose();
         }
 
         private static string BuildIconCacheKey(IntPtr windowHandle, WindowIconSize size) 
