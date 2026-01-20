@@ -74,11 +74,21 @@ namespace TaskSwitcher.Core
 
         /// <summary>
         /// Gets a cached BitmapImage by window handle and size, or null if not cached.
+        /// Falls back to long-lived cache if short-lived cache has expired.
         /// </summary>
         public object GetBitmapImage(IntPtr windowHandle, WindowIconSize size)
         {
-            string cacheKey = BuildBitmapCacheKey(windowHandle, size);
-            return _iconCache.Get(cacheKey);
+            string shortCacheKey = BuildBitmapCacheKey(windowHandle, size);
+            var cached = _iconCache.Get(shortCacheKey);
+            
+            if (cached != null)
+            {
+                return cached;
+            }
+
+            // Fallback to long-lived cache
+            string longCacheKey = shortCacheKey + "-long";
+            return _iconCache.Get(longCacheKey);
         }
 
         /// <summary>
