@@ -55,9 +55,18 @@ namespace TaskSwitcher.Core
             string cacheKey = BuildIconCacheKey(windowHandle, size);
             var policy = new CacheItemPolicy
             {
-                SlidingExpiration = LongCacheDuration
+                SlidingExpiration = LongCacheDuration,
+                RemovedCallback = DisposeIconOnRemoval
             };
             _iconCache.Set(cacheKey, icon, policy);
+        }
+
+        /// <summary>
+        /// Callback to dispose Icon resources when removed from cache.
+        /// </summary>
+        private static void DisposeIconOnRemoval(CacheEntryRemovedArguments args)
+        {
+            (args.CacheItem.Value as Icon)?.Dispose();
         }
 
         /// <summary>
