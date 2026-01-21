@@ -20,6 +20,7 @@ namespace TaskSwitcher.Core
 
         private volatile MemoryCache _iconCache;
         private readonly TimeProvider _timeProvider;
+        private readonly Lock _getOrSetLock = new();
         
         // Cache configuration
         private static readonly TimeSpan ShortCacheDuration = TimeSpan.FromSeconds(5);
@@ -111,6 +112,7 @@ namespace TaskSwitcher.Core
 
         /// <summary>
         /// Gets or sets a generic cached value by key.
+        /// Uses double-checked locking to ensure thread-safe initialization.
         /// </summary>
         /// <exception cref="ArgumentException">Thrown when key is null or whitespace.</exception>
         public T GetOrSet<T>(string key, Func<T> factory, TimeSpan expiration) where T : class
@@ -123,12 +125,21 @@ namespace TaskSwitcher.Core
                 return cached;
             }
 
-            T value = factory();
-            if (value != null)
+            lock (_getOrSetLock)
             {
-                cache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
+                // Double-check after acquiring lock to avoid redundant factory calls
+                if (cache.Get(key) is T cachedAgain)
+                {
+                    return cachedAgain;
+                }
+
+                T value = factory();
+                if (value != null)
+                {
+                    cache.Set(key, value, _timeProvider.GetUtcNow().Add(expiration));
+                }
+                return value;
             }
-            return value;
         }
 
         /// <summary>
