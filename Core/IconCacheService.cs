@@ -23,7 +23,6 @@ namespace TaskSwitcher.Core
         private readonly Lock _getOrSetLock = new();
         
         // Cache configuration
-        private static readonly TimeSpan ShortCacheDuration = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan LongCacheDuration = TimeSpan.FromMinutes(10);
 
         private IconCacheService() : this(TimeProvider.System)
@@ -213,8 +212,14 @@ namespace TaskSwitcher.Core
             var sizeString = GetSizeString(size);
             var handle = (nint)windowHandle;
 
+            // Pre-format handle to determine exact digit count (avoids over-allocation)
+            Span<char> handleBuffer = stackalloc char[24]; // max nint digits + sign
+            handle.TryFormat(handleBuffer, out int handleLength);
+
+            int totalLength = prefix.Length + handleLength + 1 + sizeString.Length;
+
             return string.Create(
-                prefix.Length + 20 + 1 + sizeString.Length, // 20 = max nint digits, 1 = separator
+                totalLength,
                 (prefix, handle, sizeString),
                 static (span, state) =>
                 {
@@ -227,9 +232,6 @@ namespace TaskSwitcher.Core
                     span[pos++] = '-';
 
                     state.sizeString.AsSpan().CopyTo(span[pos..]);
-                    pos += state.sizeString.Length;
-
-                    // Truncate to actual length (string.Create handles this via the span)
                 });
         }
 
