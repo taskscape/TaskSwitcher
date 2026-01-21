@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
-using System.Runtime.Caching;
 using System.Runtime.InteropServices;
 using System.Text;
 using ManagedWinapi.Windows;
@@ -15,19 +14,14 @@ namespace TaskSwitcher.Core
     /// </summary>
     public class AppWindow : SystemWindow
     {
+        private static readonly TimeSpan ProcessTitleCacheDuration = TimeSpan.FromHours(1);
+
         public string ProcessTitle
         {
             get
             {
                 string key = "ProcessTitle-" + HWnd;
-                if (MemoryCache.Default.Get(key) is string processTitle)
-                {
-                    return processTitle;
-                }
-
-                processTitle = Process.ProcessName;
-                MemoryCache.Default.Add(key, processTitle, DateTimeOffset.Now.AddHours(1));
-                return processTitle;
+                return IconCacheService.Instance.GetOrSet(key, () => Process.ProcessName, ProcessTitleCacheDuration);
             }
         }
 

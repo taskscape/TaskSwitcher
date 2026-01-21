@@ -1,8 +1,9 @@
 using System;
 using System.Drawing;
-using System.Runtime.Caching;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Windows.Media.Imaging;
+using Microsoft.Extensions.Caching.Memory;
 
 [assembly: InternalsVisibleTo("Core.UnitTests")]
 
@@ -12,15 +13,21 @@ namespace TaskSwitcher.Core
     /// Provides centralized caching for window icons to avoid redundant memory usage
     /// across different components.
     /// </summary>
-    public sealed class IconCacheService
+    public sealed class IconCacheService : IIconCacheService, IDisposable
     {
+        private const string CacheName = "UnifiedWindowIconCache";
+        
         private static readonly Lazy<IconCacheService> LazyInstance = new(() => new IconCacheService());
         
+        /// <summary>
+        /// Gets the singleton instance. For new code, prefer dependency injection with <see cref="IIconCacheService"/>.
+        /// </summary>
         public static IconCacheService Instance => LazyInstance.Value;
 
         private volatile MemoryCache _iconCache;
         private readonly TimeProvider _timeProvider;
         private readonly Lock _getOrSetLock = new();
+        private bool _disposed;
         
         // Cache configuration
         private static readonly TimeSpan LongCacheDuration = TimeSpan.FromMinutes(10);
@@ -30,13 +37,37 @@ namespace TaskSwitcher.Core
         }
 
         /// <summary>
-        /// Constructor for testing with a custom TimeProvider.
+        /// Constructor for dependency injection with default time provider.
+        /// </summary>
+        /// <param name="memoryCache">Optional pre-configured memory cache. If null, a new cache is created.</param>
+        public IconCacheService(MemoryCache memoryCache) : this(memoryCache, TimeProvider.System)
+        {
+        }
+
+        /// <summary>
+        /// Constructor for testing or DI with a custom TimeProvider.
         /// </summary>
         /// <param name="timeProvider">The time provider to use for cache expiration calculations.</param>
         internal IconCacheService(TimeProvider timeProvider)
         {
             _timeProvider = timeProvider ?? TimeProvider.System;
-            _iconCache = new MemoryCache("UnifiedWindowIconCache");
+            _iconCache = CreateCache();
+        }
+
+        /// <summary>
+        /// Constructor for full dependency injection support.
+        /// </summary>
+        /// <param name="memoryCache">Optional pre-configured memory cache. If null, a new cache is created.</param>
+        /// <param name="timeProvider">The time provider to use for cache expiration calculations.</param>
+        internal IconCacheService(MemoryCache memoryCache, TimeProvider timeProvider)
+        {
+            _timeProvider = timeProvider ?? TimeProvider.System;
+            _iconCache = memoryCache ?? CreateCache();
+        }
+
+        private static MemoryCache CreateCache()
+        {
+            return new MemoryCache(new MemoryCacheOptions { TrackStatistics = false });
         }
 
         /// <summary>
@@ -46,7 +77,7 @@ namespace TaskSwitcher.Core
         {
             var cache = _iconCache;
             string cacheKey = BuildIconCacheKey(windowHandle, size);
-            return cache.Get(cacheKey) as Icon;
+            return cache.Get<Icon>(cacheKey);
         }
 
         /// <summary>
@@ -58,55 +89,55 @@ namespace TaskSwitcher.Core
 
             var cache = _iconCache;
             string cacheKey = BuildIconCacheKey(windowHandle, size);
-            var policy = new CacheItemPolicy
+            var options = new MemoryCacheEntryOptions
             {
-                SlidingExpiration = LongCacheDuration,
-                RemovedCallback = DisposeIconOnRemoval
+                SlidingExpiration = LongCacheDuration
             };
-            cache.Set(cacheKey, icon, policy);
+            options.RegisterPostEvictionCallback(DisposeIconOnRemoval);
+            cache.Set(cacheKey, icon, options);
         }
 
         /// <summary>
         /// Callback to dispose Icon resources when removed from cache.
         /// </summary>
-        private static void DisposeIconOnRemoval(CacheEntryRemovedArguments args)
+        private static void DisposeIconOnRemoval(object key, object value, EvictionReason reason, object state)
         {
-            (args.CacheItem.Value as Icon)?.Dispose();
+            (value as Icon)?.Dispose();
         }
 
         /// <summary>
         /// Callback to dispose resources when removed from cache if they implement IDisposable.
         /// </summary>
-        private static void DisposeOnRemoval(CacheEntryRemovedArguments args)
+        private static void DisposeOnRemoval(object key, object value, EvictionReason reason, object state)
         {
-            (args.CacheItem.Value as IDisposable)?.Dispose();
+            (value as IDisposable)?.Dispose();
         }
 
         /// <summary>
-        /// Gets a cached BitmapImage by window handle and size, or null if not cached.
+        /// Gets a cached BitmapSource by window handle and size, or null if not cached.
         /// </summary>
-        public object GetBitmapImage(IntPtr windowHandle, WindowIconSize size)
+        public BitmapSource GetBitmapImage(IntPtr windowHandle, WindowIconSize size)
         {
             var cache = _iconCache;
             string cacheKey = BuildBitmapCacheKey(windowHandle, size);
-            return cache.Get(cacheKey);
+            return cache.Get<BitmapSource>(cacheKey);
         }
 
         /// <summary>
-        /// Caches a BitmapImage by window handle and size with sliding expiration.
+        /// Caches a BitmapSource by window handle and size with sliding expiration.
         /// </summary>
-        public void SetBitmapImage(IntPtr windowHandle, WindowIconSize size, object bitmapImage)
+        public void SetBitmapImage(IntPtr windowHandle, WindowIconSize size, BitmapSource bitmapImage)
         {
             if (bitmapImage == null) return;
 
             var cache = _iconCache;
             string cacheKey = BuildBitmapCacheKey(windowHandle, size);
-            var policy = new CacheItemPolicy
+            var options = new MemoryCacheEntryOptions
             {
-                SlidingExpiration = LongCacheDuration,
-                RemovedCallback = DisposeOnRemoval
+                SlidingExpiration = LongCacheDuration
             };
-            cache.Set(cacheKey, bitmapImage, policy);
+            options.RegisterPostEvictionCallback(DisposeOnRemoval);
+            cache.Set(cacheKey, bitmapImage, options);
         }
 
         /// <summary>
@@ -119,7 +150,7 @@ namespace TaskSwitcher.Core
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
             var cache = _iconCache;
-            if (cache.Get(key) is T cached)
+            if (cache.TryGetValue(key, out T cached))
             {
                 return cached;
             }
@@ -127,7 +158,7 @@ namespace TaskSwitcher.Core
             lock (_getOrSetLock)
             {
                 // Double-check after acquiring lock to avoid redundant factory calls
-                if (cache.Get(key) is T cachedAgain)
+                if (cache.TryGetValue(key, out T cachedAgain))
                 {
                     return cachedAgain;
                 }
@@ -150,14 +181,7 @@ namespace TaskSwitcher.Core
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
             var cache = _iconCache;
-            var cached = cache.Get(key);
-            if (cached is T typedValue)
-            {
-                value = typedValue;
-                return true;
-            }
-            value = default;
-            return false;
+            return cache.TryGetValue(key, out value);
         }
 
         /// <summary>
@@ -190,9 +214,19 @@ namespace TaskSwitcher.Core
         /// </summary>
         public void Clear()
         {
-            var newCache = new MemoryCache("UnifiedWindowIconCache");
+            var newCache = CreateCache();
             var oldCache = Interlocked.Exchange(ref _iconCache, newCache);
             oldCache.Dispose();
+        }
+
+        /// <summary>
+        /// Disposes the cache and releases all resources.
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _iconCache?.Dispose();
         }
 
         private static string BuildIconCacheKey(IntPtr windowHandle, WindowIconSize size)
