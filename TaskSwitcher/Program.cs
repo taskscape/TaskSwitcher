@@ -1,8 +1,6 @@
 ﻿/*
  * TaskSwitcher - The incremental-search task switcher for Windows.
- * Copyright 2009 James Sulak
- * Copyright 2014 Regin Larsen
- * Copyright 2024 Taskscape Ltd
+ * Copyright 2009-2026 James Sulak, Regin Larsen, Taskscape Ltd
  * 
  * TaskSwitcher is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
