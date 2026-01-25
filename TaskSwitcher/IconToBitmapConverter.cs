@@ -17,18 +17,16 @@ namespace TaskSwitcher
 
             try
             {
-                using (MemoryStream memory = new())
-                {
-                    using Bitmap bitmap = icon.ToBitmap();
-                    bitmap.Save(memory, ImageFormat.Png);
-                    memory.Position = 0;
-                    BitmapImage bitmapImage = new();
-                    bitmapImage.BeginInit();
-                    bitmapImage.StreamSource = memory;
-                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmapImage.EndInit();
-                    return bitmapImage;
-                }
+                using MemoryStream memory = new();
+                using Bitmap bitmap = icon.ToBitmap();
+                bitmap.Save(memory, ImageFormat.Png);
+                memory.Position = 0;
+                BitmapImage bitmapImage = new();
+                bitmapImage.BeginInit();
+                bitmapImage.StreamSource = memory;
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapImage.EndInit();
+                return bitmapImage;
             }
             catch (Exception ex)
             {
@@ -40,18 +38,16 @@ namespace TaskSwitcher
 
         private BitmapImage CreateEmptyBitmapImage(int width, int height)
         {
-            using (Bitmap emptyBitmap = new(width, height))
-            using (MemoryStream memory = new())
-            {
-                emptyBitmap.Save(memory, ImageFormat.Png);
-                memory.Position = 0;
-                BitmapImage bitmapImage = new();
-                bitmapImage.BeginInit();
-                bitmapImage.StreamSource = memory;
-                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                bitmapImage.EndInit();
-                return bitmapImage;
-            }
+            using Bitmap emptyBitmap = new(width, height);
+            using MemoryStream memory = new();
+            emptyBitmap.Save(memory, ImageFormat.Png);
+            memory.Position = 0;
+            BitmapImage bitmapImage = new();
+            bitmapImage.BeginInit();
+            bitmapImage.StreamSource = memory;
+            bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+            bitmapImage.EndInit();
+            return bitmapImage;
         }
     }
 }

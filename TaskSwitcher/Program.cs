@@ -39,9 +39,8 @@ namespace TaskSwitcher
             {
                 RunAsAdministratorIfConfigured();
 
-                using (Mutex mutex = new(false, mutex_id))
-                {
-                    bool hasHandle = false;
+                using Mutex mutex = new(false, mutex_id);
+                bool hasHandle = false;
                 try
                 {
                     try
@@ -71,7 +70,6 @@ namespace TaskSwitcher
                     if (hasHandle)
                         mutex.ReleaseMutex();
                 }
-            }
             }
         }
 

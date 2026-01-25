@@ -1020,13 +1020,9 @@ namespace ManagedWinapi.Windows
         {
             RECT rect;
             GetWindowRect(_hwnd, out rect);
-            using (WindowDeviceContext windowDC = GetDeviceContext(false))
-            {
-                using (Graphics g = windowDC.CreateGraphics())
-                {
-                    g.DrawRectangle(new Pen(Color.Red, 4), 0, 0, rect.Right - rect.Left, rect.Bottom - rect.Top);
-                }
-            }
+            using WindowDeviceContext windowDC = GetDeviceContext(false);
+            using Graphics g = windowDC.CreateGraphics();
+            g.DrawRectangle(new Pen(Color.Red, 4), 0, 0, rect.Right - rect.Left, rect.Bottom - rect.Top);
         }
 
         /// <summary>
