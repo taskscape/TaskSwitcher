@@ -139,7 +139,7 @@ namespace ManagedWinapi
         {
             get
             {
-                List<string> result = new List<string>();
+                List<string> result = new();
                 foreach (ManagementObject mo in new ManagementClass("Win32_NetworkAdapterConfiguration").GetInstances())
                 {
                     if ((bool)mo["IPEnabled"] == true)
@@ -176,11 +176,11 @@ namespace ManagedWinapi
         {
             get
             {
-                Dictionary<string, string> result = new Dictionary<string, string>();
+                Dictionary<string, string> result = new();
                 foreach (string drive in Directory.GetLogicalDrives())
                 {
                     ManagementObject disk =
-                        new ManagementObject("win32_logicaldisk.deviceid=\"" +
+                        new("win32_logicaldisk.deviceid=\"" +
                         drive.Substring(0, 2) + "\"");
                     disk.Get();
                     result.Add(drive, disk["VolumeSerialNumber"] == null ? null :
@@ -198,7 +198,7 @@ namespace ManagedWinapi
         {
             get
             {
-                List<string> result = new List<string>();
+                List<string> result = new();
                 foreach (ManagementObject mo in new ManagementClass("Win32_Processor").GetInstances())
                 {
                     result.Add(mo.Properties["ProcessorId"].Value.ToString());

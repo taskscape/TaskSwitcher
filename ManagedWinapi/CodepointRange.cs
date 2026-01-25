@@ -20,7 +20,7 @@ namespace ManagedWinapi
         /// </summary>
         public CodepointRange(Font font)
         {
-            List<char> rangeList = new List<char>();
+            List<char> rangeList = new();
             Graphics g = Graphics.FromImage(new Bitmap(1, 1));
             IntPtr hdc = g.GetHdc();
             IntPtr hFont = font.ToHfont();
@@ -57,7 +57,7 @@ namespace ManagedWinapi
         /// </summary>
         public static Dictionary<Font, CodepointRange> GetRangesForAllFonts()
         {
-            Dictionary<Font, CodepointRange> result = new Dictionary<Font, CodepointRange>();
+            Dictionary<Font, CodepointRange> result = new();
             foreach (FontFamily ff in FontFamily.Families)
             {
                 Font[] fonts = new Font[16];
@@ -144,7 +144,7 @@ namespace ManagedWinapi
         /// </summary>
         public override string ToString()
         {
-            StringBuilder sb = new StringBuilder("[");
+            StringBuilder sb = new("[");
             for (int i = 0; i < ranges.Length; i++)
             {
                 if (i % 2 == 1)

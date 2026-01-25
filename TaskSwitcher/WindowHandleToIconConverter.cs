@@ -33,7 +33,7 @@ namespace TaskSwitcher
             }
 
             // Create new icon and cache it
-            AppWindow window = new AppWindow(handle);
+            AppWindow window = new(handle);
             Icon icon = iconSize == WindowIconSize.Small ? window.SmallWindowIcon : window.LargeWindowIcon;
             BitmapImage iconImage = _iconToBitmapConverter.Convert(icon) ?? new BitmapImage();
 

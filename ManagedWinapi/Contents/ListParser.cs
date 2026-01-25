@@ -40,7 +40,7 @@ namespace ManagedWinapi.Windows.Contents
         {
             get
             {
-                StringBuilder sb = new StringBuilder();
+                StringBuilder sb = new();
                 sb.Append("<" + type + ">");
                 if (current != null)
                     sb.Append(" (selected value: \"" + current + "\")");
@@ -61,7 +61,7 @@ namespace ManagedWinapi.Windows.Contents
         {
             get
             {
-                Dictionary<string, string> result = new Dictionary<string, string>();
+                Dictionary<string, string> result = new();
                 result.Add("SelectedValue", current);
                 result.Add("SelectedIndex", "" + selected);
                 result.Add("Count", "" + values.Length);
@@ -212,7 +212,7 @@ namespace ManagedWinapi.Windows.Contents
                         }
                     }
                 }
-                List<string> values = new List<string>();
+                List<string> values = new();
                 for (int i = 0; i < cs; i++)
                 {
                     if (o.Children[i].RoleIndex == 34)
@@ -227,7 +227,7 @@ namespace ManagedWinapi.Windows.Contents
                                 else
                                 {
                                     string tmpCols = "; " + cols;
-                                    List<string> usedHdr = new List<string>();
+                                    List<string> usedHdr = new();
                                     foreach (string header in hdr)
                                     {
                                         string h = "; " + header + ": ";
@@ -319,7 +319,7 @@ namespace ManagedWinapi.Windows.Contents
             SystemAccessibleObject sao = SystemAccessibleObject.FromWindow(sw, AccessibleObjectID.OBJID_CLIENT);
             if (sao.RoleIndex == 35)
             {
-                List<string> treeNodes = new List<string>();
+                List<string> treeNodes = new();
                 int selected = -1;
                 foreach(SystemAccessibleObject n in sao.Children) {
                     if (n.RoleIndex == 36)

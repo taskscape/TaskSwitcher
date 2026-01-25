@@ -43,7 +43,7 @@ namespace ManagedWinapi.Windows
     public class EventDispatchingNativeWindow : NativeWindow
     {
 
-        private static Object myLock = new Object();
+        private static Object myLock = new();
         private static EventDispatchingNativeWindow _instance;
 
         /// <summary>

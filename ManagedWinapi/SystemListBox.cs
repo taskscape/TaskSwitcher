@@ -146,7 +146,7 @@ namespace ManagedWinapi.Windows
                     throw new ArgumentException("Argument out of range");
                 }
                 int length = sw.SendGetMessage(CB_GETLBTEXTLEN, (uint)index);
-                StringBuilder sb = new StringBuilder(length);
+                StringBuilder sb = new(length);
                 SystemWindow.SendMessage(new HandleRef(this, sw.HWnd), CB_GETLBTEXT, new IntPtr(index), sb);
                 return sb.ToString();
 

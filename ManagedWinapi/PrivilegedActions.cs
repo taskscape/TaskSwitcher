@@ -41,7 +41,7 @@ namespace ManagedWinapi
 
             set
             {
-                SYSTEMTIME st = new SYSTEMTIME(value);
+                SYSTEMTIME st = new(value);
                 // Set it twice due to possible daylight savings change
                 ApiHelper.FailIfZero(SetLocalTime(ref st));
                 ApiHelper.FailIfZero(SetLocalTime(ref st));
@@ -62,7 +62,7 @@ namespace ManagedWinapi
 
             set
             {
-                SYSTEMTIME st = new SYSTEMTIME(value);
+                SYSTEMTIME st = new(value);
                 ApiHelper.FailIfZero(SetLocalTime(ref st));
             }
         }

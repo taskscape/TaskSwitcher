@@ -65,7 +65,7 @@ namespace ManagedWinapi.Windows.Contents
         private string ParseMenu(SystemWindow systemWindow, AccessibleObjectID accessibleObjectID)
         {
             SystemAccessibleObject sao = SystemAccessibleObject.FromWindow(systemWindow, accessibleObjectID);
-            StringBuilder menuItems = new StringBuilder();
+            StringBuilder menuItems = new();
             ParseSubMenu(menuItems, sao, 1);
             return menuItems.ToString();
         }
@@ -87,7 +87,7 @@ namespace ManagedWinapi.Windows.Contents
         private string ParseClientArea(SystemWindow sw)
         {
             SystemAccessibleObject sao = SystemAccessibleObject.FromWindow(sw, AccessibleObjectID.OBJID_CLIENT);
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
             ParseClientAreaElement(sb, sao, 1);
             return sb.ToString();
         }
@@ -118,7 +118,7 @@ namespace ManagedWinapi.Windows.Contents
         {
             get
             {
-                Dictionary<string, string> result = new Dictionary<string, string>();
+                Dictionary<string, string> result = new();
                 return result;
             }
         }

@@ -59,9 +59,9 @@ namespace ManagedWinapi.Windows
 
         internal static SystemTreeViewItem[] FindSubItems(SystemWindow sw, IntPtr hParent)
         {
-            List<SystemTreeViewItem> result = new List<SystemTreeViewItem>();
+            List<SystemTreeViewItem> result = new();
             IntPtr hChild;
-            HandleRef hr = new HandleRef(sw, sw.HWnd);
+            HandleRef hr = new(sw, sw.HWnd);
             if (hParent == IntPtr.Zero)
             {
                 hChild = SystemWindow.SendMessage(hr, TVM_GETNEXTITEM, new IntPtr(TVGN_ROOT), IntPtr.Zero);
@@ -110,7 +110,7 @@ namespace ManagedWinapi.Windows
             get
             {
                 ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(sw.Process, 2001);
-                TVITEM tvi = new TVITEM();
+                TVITEM tvi = new();
                 tvi.hItem = handle;
                 tvi.mask = TVIF_TEXT;
                 tvi.cchTextMax = 2000;

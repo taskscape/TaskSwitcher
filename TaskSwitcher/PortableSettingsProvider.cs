@@ -118,7 +118,7 @@ namespace TaskSwitcher
         public override SettingsPropertyValueCollection GetPropertyValues(SettingsContext context,
             SettingsPropertyCollection collection)
         {
-            SettingsPropertyValueCollection values = new SettingsPropertyValueCollection();
+            SettingsPropertyValueCollection values = new();
 
             foreach (SettingsProperty property in collection)
             {
@@ -192,7 +192,7 @@ namespace TaskSwitcher
 
         public XmlDocument GetBlankXmlDocument()
         {
-            XmlDocument blankXmlDocument = new XmlDocument();
+            XmlDocument blankXmlDocument = new();
             blankXmlDocument.AppendChild(blankXmlDocument.CreateXmlDeclaration("1.0", "utf-8", string.Empty));
             blankXmlDocument.AppendChild(blankXmlDocument.CreateElement(_rootNodeName));
 

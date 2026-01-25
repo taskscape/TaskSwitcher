@@ -19,7 +19,7 @@ namespace ManagedWinapi
         /// </summary>
         public event EventHandler HotkeyPressed;
 
-        private static Object myStaticLock = new Object();
+        private static Object myStaticLock = new();
         private static int hotkeyCounter = 0xA000;
 
         private int hotkeyIndex;

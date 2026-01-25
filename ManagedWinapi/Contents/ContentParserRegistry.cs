@@ -11,7 +11,7 @@ namespace ManagedWinapi.Windows.Contents
             get { return instance ?? (instance = new ContentParserRegistry()); }
         }
 
-        readonly List<WindowContentParser> parsers = new List<WindowContentParser>();
+        readonly List<WindowContentParser> parsers = new();
 
         private ContentParserRegistry()
         {

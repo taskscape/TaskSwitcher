@@ -396,7 +396,7 @@ namespace ManagedWinapi.Hooks
         /// by pressing Control+Alt+Delete</param>
         public static void LockInputFor(int millis, bool force)
         {
-            InputLocker inputLocker = new InputLocker(millis, 1, force);
+            InputLocker inputLocker = new(millis, 1, force);
         }
     }
 }

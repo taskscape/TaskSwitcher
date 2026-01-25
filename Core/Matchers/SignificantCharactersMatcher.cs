@@ -7,7 +7,7 @@ namespace TaskSwitcher.Core.Matchers
     public class SignificantCharactersMatcher : IMatcher
     {
         // Cache for compiled regex patterns to avoid recompilation
-        private static readonly Dictionary<string, Regex> CompiledPatterns = new Dictionary<string, Regex>();
+        private static readonly Dictionary<string, Regex> CompiledPatterns = new();
 
         public MatchResult Evaluate(string input, string pattern)
         {
@@ -26,7 +26,7 @@ namespace TaskSwitcher.Core.Matchers
                 return NonMatchResult(input);
             }
 
-            MatchResult matchResult = new MatchResult();
+            MatchResult matchResult = new();
 
             string beforeMatch = input.Substring(0, match.Index);
             matchResult.StringParts.Add(new StringPart(beforeMatch));
@@ -62,7 +62,7 @@ namespace TaskSwitcher.Core.Matchers
                 string regexPattern = BuildRegexPattern(pattern);
                 
                 // Compile the regex for better performance
-                Regex compiledRegex = new Regex(regexPattern, RegexOptions.Compiled);
+                Regex compiledRegex = new(regexPattern, RegexOptions.Compiled);
                 
                 // Store in cache
                 CompiledPatterns[pattern] = compiledRegex;
@@ -87,7 +87,7 @@ namespace TaskSwitcher.Core.Matchers
 
         private static MatchResult NonMatchResult(string input)
         {
-            MatchResult matchResult = new MatchResult();
+            MatchResult matchResult = new();
             if (input != null)
             {
                 matchResult.StringParts.Add(new StringPart(input));

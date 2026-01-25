@@ -213,7 +213,7 @@ namespace ManagedWinapi.Audio.Mixer
             {
                 if (srcLines == null)
                 {
-                    List<SourceLine> sls = new List<SourceLine>(SourceLineCount);
+                    List<SourceLine> sls = new(SourceLineCount);
                     for (int i = 0; i < SourceLineCount; i++)
                     {
                         sls.Add(SourceLine.GetLine(mixer, line.dwDestination, i));
@@ -226,7 +226,7 @@ namespace ManagedWinapi.Audio.Mixer
 
         internal static DestinationLine GetLine(Mixer mixer, int index)
         {
-            MIXERLINE m = new MIXERLINE();
+            MIXERLINE m = new();
             m.cbStruct = Marshal.SizeOf(m);
             m.dwDestination = index;
             mixerGetLineInfoA(mixer.Handle, ref m, MIXER_GETLINEINFOF_DESTINATION);

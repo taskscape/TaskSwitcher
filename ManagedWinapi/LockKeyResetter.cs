@@ -36,7 +36,7 @@ namespace ManagedWinapi
         {
             for (int i = 0; i < MODIFIER_KEYS.Length; i++)
             {
-                KeyboardKey k = new KeyboardKey(MODIFIER_KEYS[i]);
+                KeyboardKey k = new(MODIFIER_KEYS[i]);
                 short dummy = k.AsyncState; // reset remembered status
                 if (k.AsyncState != 0)
                 {

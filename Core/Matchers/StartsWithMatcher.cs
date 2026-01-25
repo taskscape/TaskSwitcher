@@ -4,7 +4,7 @@
     {
         public MatchResult Evaluate(string input, string pattern)
         {
-            MatchResult matchResult = new MatchResult();
+            MatchResult matchResult = new();
 
             if (input == null)
             {

@@ -58,7 +58,7 @@ namespace ManagedWinapi.Windows.Contents
         {
             get
             {
-                Dictionary<string, string> result = new Dictionary<string, string>();
+                Dictionary<string, string> result = new();
                 result.Add("Password", password ? "True" : "False");
                 result.Add("MultiLine", text.IndexOf('\n') != -1 ? "True" : "False");
                 result.Add("Text", text);

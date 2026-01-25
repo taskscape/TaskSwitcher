@@ -122,7 +122,7 @@ namespace ManagedWinapi.Audio.Mixer
             {
                 if (destLines != null) return destLines;
                 int dlc = DestinationLineCount;
-                List<DestinationLine> l = new List<DestinationLine>(dlc);
+                List<DestinationLine> l = new(dlc);
                 for (int i = 0; i < dlc; i++)
                 {
                     l.Add(DestinationLine.GetLine(this, i));

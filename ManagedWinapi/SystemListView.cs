@@ -63,7 +63,7 @@ namespace ManagedWinapi.Windows
         {
             get
             {
-                LVITEM lvi = new LVITEM();
+                LVITEM lvi = new();
                 lvi.cchTextMax = 300;
                 lvi.iItem = index;
                 lvi.iSubItem = subIndex;
@@ -97,8 +97,8 @@ namespace ManagedWinapi.Windows
         {
             get
             {
-                List<SystemListViewColumn> result = new List<SystemListViewColumn>();
-                LVCOLUMN lvc = new LVCOLUMN();
+                List<SystemListViewColumn> result = new();
+                LVCOLUMN lvc = new();
                 lvc.cchTextMax = 300;
                 lvc.mask = LVCF_FMT | LVCF_SUBITEM | LVCF_TEXT | LVCF_WIDTH;
                 ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(systemWindow.Process, 301);
@@ -205,7 +205,7 @@ namespace ManagedWinapi.Windows
         {
             get
             {
-                POINT pt = new POINT();
+                POINT pt = new();
                 ProcessMemoryChunk c = ProcessMemoryChunk.AllocStruct(sw.Process, pt);
                 ApiHelper.FailIfZero(SystemWindow.SendMessage(new HandleRef(sw, sw.HWnd), SystemListView.LVM_GETITEMPOSITION, new IntPtr(index), c.Location));
                 pt = (POINT)c.ReadToStructure(0, typeof(POINT));

@@ -127,7 +127,7 @@ namespace ManagedWinapi.Accessibility
         /// </summary>
         public static string RoleToString(int roleNumber)
         {
-            StringBuilder sb = new StringBuilder(1024);
+            StringBuilder sb = new(1024);
             uint result = GetRoleText((uint)roleNumber, sb, 1024);
             if (result == 0) throw new Exception("Invalid role number");
             return sb.ToString();
@@ -152,7 +152,7 @@ namespace ManagedWinapi.Accessibility
         /// </summary>
         public static string StateBitToString(int stateBit)
         {
-            StringBuilder sb = new StringBuilder(1024);
+            StringBuilder sb = new(1024);
             uint result = GetStateText((uint)stateBit, sb, 1024);
             if (result == 0) throw new Exception("Invalid role number");
             return sb.ToString();
@@ -452,8 +452,8 @@ namespace ManagedWinapi.Accessibility
             if (ia1.Equals(ia2)) return true;
             if (Marshal.GetIUnknownForObject(ia1) == Marshal.GetIUnknownForObject(ia2)) return true;
             if (ia1.accChildCount != ia2.accChildCount) return false;
-            SystemAccessibleObject sa1 = new SystemAccessibleObject(ia1, 0);
-            SystemAccessibleObject sa2 = new SystemAccessibleObject(ia2, 0);
+            SystemAccessibleObject sa1 = new(ia1, 0);
+            SystemAccessibleObject sa2 = new(ia2, 0);
             if (sa1.Window.HWnd != sa2.Window.HWnd) return false;
             if (sa1.Location != sa2.Location) return false;
             if (sa1.DefaultAction != sa2.DefaultAction) return false;
