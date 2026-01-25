@@ -67,14 +67,9 @@ namespace ManagedWinapi.Windows.Contents
         }
     }
 
-    class TextFieldParser : WindowContentParser
+    class TextFieldParser(bool strict) : WindowContentParser
     {
-        readonly bool strict;
-
-        public TextFieldParser(bool strict)
-        {
-            this.strict = strict;
-        }
+        readonly bool strict = strict;
 
         internal override bool CanParseContent(SystemWindow systemWindow)
         {

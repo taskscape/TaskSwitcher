@@ -9,29 +9,23 @@ namespace ManagedWinapi.Windows
     /// <summary>
     /// Wrapper around the Winapi POINT type.
     /// </summary>
+    /// <remarks>
+    /// Creates a new POINT.
+    /// </remarks>
+    /// <param name="x"></param>
+    /// <param name="y"></param>
     [StructLayout(LayoutKind.Sequential)]
-    public struct POINT
+    public struct POINT(int x, int y)
     {
         /// <summary>
         /// The X Coordinate.
         /// </summary>
-        public int X;
+        public int X = x;
 
         /// <summary>
         /// The Y Coordinate.
         /// </summary>
-        public int Y;
-
-        /// <summary>
-        /// Creates a new POINT.
-        /// </summary>
-        /// <param name="x"></param>
-        /// <param name="y"></param>
-        public POINT(int x, int y)
-        {
-            this.X = x;
-            this.Y = y;
-        }
+        public int Y = y;
 
         /// <summary>
         /// Implicit cast.

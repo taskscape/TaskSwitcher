@@ -212,28 +212,18 @@ namespace ManagedWinapi.Accessibility
     /// <summary>
     /// Provides data for accessible events.
     /// </summary>
-    public class AccessibleEventArgs : EventArgs
+    /// <remarks>
+    /// Initializes a new instance of the AccessibleEventArgs class.
+    /// </remarks>
+    public class AccessibleEventArgs(AccessibleEventType eventType,
+        IntPtr hwnd, uint idObject, uint idChild, uint dwEventThread, uint dwmsEventTime) : EventArgs
     {
-        private AccessibleEventType eventType;
-        private IntPtr hWnd;
-        private uint idObject;
-        private uint idChild;
-        private uint dwEventThread;
-        private uint dwmsEventTime;
-
-        /// <summary>
-        /// Initializes a new instance of the AccessibleEventArgs class.
-        /// </summary>
-        public AccessibleEventArgs(AccessibleEventType eventType,
-            IntPtr hwnd, uint idObject, uint idChild, uint dwEventThread, uint dwmsEventTime)
-        {
-            this.eventType = eventType;
-            this.hWnd = hwnd;
-            this.idObject = idObject;
-            this.idChild = idChild;
-            this.dwEventThread = dwEventThread;
-            this.dwmsEventTime = dwmsEventTime;
-        }
+        private AccessibleEventType eventType = eventType;
+        private IntPtr hWnd = hwnd;
+        private uint idObject = idObject;
+        private uint idChild = idChild;
+        private uint dwEventThread = dwEventThread;
+        private uint dwmsEventTime = dwmsEventTime;
 
         /// <summary>
         /// Type of this accessible event

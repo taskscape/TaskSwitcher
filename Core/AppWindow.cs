@@ -12,7 +12,7 @@ namespace TaskSwitcher.Core
     /// <summary>
     /// This class is a wrapper around the Win32 api window handles
     /// </summary>
-    public class AppWindow : SystemWindow
+    public class AppWindow(IntPtr HWnd) : SystemWindow(HWnd)
     {
         private static readonly TimeSpan ProcessTitleCacheDuration = TimeSpan.FromHours(1);
 
@@ -30,10 +30,6 @@ namespace TaskSwitcher.Core
         public Icon SmallWindowIcon => new WindowIconFinder().Find(this, WindowIconSize.Small);
 
         public string ExecutablePath => GetExecutablePath(Process.Id);
-
-        public AppWindow(IntPtr HWnd) : base(HWnd)
-        {
-        }
 
         /// <summary>
         /// Sets the focus to this window and brings it to the foreground.

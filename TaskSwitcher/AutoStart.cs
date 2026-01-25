@@ -98,11 +98,7 @@ namespace TaskSwitcher
         }
     }
 
-    public class AutoStartException : Exception
+    public class AutoStartException(string message) : Exception(message)
     {
-        public AutoStartException(string message)
-            : base(message)
-        {
-        }
     }
 }

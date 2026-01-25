@@ -9,14 +9,9 @@ using TaskSwitcher.Core;
 
 namespace TaskSwitcher
 {
-    public class AppWindowViewModel : INotifyPropertyChanged, IWindowText, IDisposable
+    public class AppWindowViewModel(AppWindow appWindow) : INotifyPropertyChanged, IWindowText, IDisposable
     {
-        public AppWindowViewModel(AppWindow appWindow)
-        {
-            AppWindow = appWindow;
-        }
-
-        public AppWindow AppWindow { get; private set; }
+        public AppWindow AppWindow { get; private set; } = appWindow;
 
         #region IWindowText Members
 

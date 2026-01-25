@@ -229,26 +229,19 @@ namespace ManagedWinapi.Audio.Mixer
     /// Provides data for the LineChanged and ControlChanged events of a 
     /// <see cref="Mixer">Mixer</see>.
     /// </summary>
-    public class MixerEventArgs : EventArgs
+    /// <remarks>
+    /// Initializes a new instance of the 
+    /// <see cref="MixerEventArgs">MixerEventArgs</see> class.
+    /// </remarks>
+    /// <param name="mixer">The affected mixer</param>
+    /// <param name="line">The affected line</param>
+    /// <param name="control">The affected control, or <code>null</code>
+    /// if this is a LineChanged event.</param>
+    public class MixerEventArgs(Mixer mixer, MixerLine line, MixerControl control) : EventArgs
     {
-        private Mixer mixer;
-        private MixerLine line;
-        private MixerControl control;
-
-        /// <summary>
-        /// Initializes a new instance of the 
-        /// <see cref="MixerEventArgs">MixerEventArgs</see> class.
-        /// </summary>
-        /// <param name="mixer">The affected mixer</param>
-        /// <param name="line">The affected line</param>
-        /// <param name="control">The affected control, or <code>null</code>
-        /// if this is a LineChanged event.</param>
-        public MixerEventArgs(Mixer mixer, MixerLine line, MixerControl control)
-        {
-            this.mixer = mixer;
-            this.line = line;
-            this.control = control;
-        }
+        private Mixer mixer = mixer;
+        private MixerLine line = line;
+        private MixerControl control = control;
 
         /// <summary>
         /// The affected mixer.

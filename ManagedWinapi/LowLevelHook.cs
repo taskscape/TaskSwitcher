@@ -294,20 +294,13 @@ namespace ManagedWinapi.Hooks
     /// <summary>
     /// A message that has been intercepted by a low-level mouse hook
     /// </summary>
-    public class LowLevelMouseMessage : LowLevelMessage
+    /// <remarks>
+    /// Creates a new low-level mouse message.
+    /// </remarks>
+    public class LowLevelMouseMessage(int msg, POINT pt, int mouseData, int flags, int time, IntPtr dwExtraInfo) : LowLevelMessage(msg, flags, time, dwExtraInfo)
     {
-        private POINT pt;
-        private int mouseData;
-
-        /// <summary>
-        /// Creates a new low-level mouse message.
-        /// </summary>
-        public LowLevelMouseMessage(int msg, POINT pt, int mouseData, int flags, int time, IntPtr dwExtraInfo)
-            : base(msg, flags, time, dwExtraInfo)
-        {
-            this.pt = pt;
-            this.mouseData = mouseData;
-        }
+        private POINT pt = pt;
+        private int mouseData = mouseData;
 
         /// <summary>
         /// The mouse position where this message occurred.
@@ -399,20 +392,13 @@ namespace ManagedWinapi.Hooks
     /// <summary>
     /// A message that has been intercepted by a low-level mouse hook
     /// </summary>
-    public class LowLevelKeyboardMessage : LowLevelMessage
+    /// <remarks>
+    /// Creates a new low-level keyboard message.
+    /// </remarks>
+    public class LowLevelKeyboardMessage(int msg, int vkCode, int scanCode, int flags, int time, IntPtr dwExtraInfo) : LowLevelMessage(msg, flags, time, dwExtraInfo)
     {
-        private int vkCode;
-        private int scanCode;
-
-        /// <summary>
-        /// Creates a new low-level keyboard message.
-        /// </summary>
-        public LowLevelKeyboardMessage(int msg, int vkCode, int scanCode, int flags, int time, IntPtr dwExtraInfo)
-            : base(msg, flags, time, dwExtraInfo)
-        {
-            this.vkCode = vkCode;
-            this.scanCode = scanCode;
-        }
+        private int vkCode = vkCode;
+        private int scanCode = scanCode;
 
         /// <summary>
         /// The virtual key code that caused this message.
