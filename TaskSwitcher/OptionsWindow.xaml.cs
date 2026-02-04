@@ -49,6 +49,11 @@ namespace TaskSwitcher
             RunAsAdministrator.IsChecked = Settings.Default.RunAsAdmin;
         }
 
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            RunOnStartup.IsChecked = new AutoStart().IsEnabled;
+        }
+
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
             Close();
@@ -88,6 +93,18 @@ namespace TaskSwitcher
             Settings.Default.AutoSwitch = AutoSwitch.IsChecked.GetValueOrDefault();
             Settings.Default.RunAsAdmin = RunAsAdministrator.IsChecked.GetValueOrDefault();
             Settings.Default.Save();
+
+            try
+            {
+                AutoStart autoStart = new()
+                {
+                    IsEnabled = RunOnStartup.IsChecked.GetValueOrDefault()
+                };
+            }
+            catch (AutoStartException ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
 
             if (closeOptionsWindow)
             {
