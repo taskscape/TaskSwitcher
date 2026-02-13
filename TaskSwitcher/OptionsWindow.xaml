@@ -1,9 +1,9 @@
 ﻿<Window x:Class="TaskSwitcher.OptionsWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="TaskSwitcher Options" ResizeMode="NoResize" SizeToContent="WidthAndHeight"
-        ShowInTaskbar="False" WindowStyle="ToolWindow" Background="{x:Static SystemColors.WindowBrush}" Height="380"
-        MaxWidth="350">
+xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+Title="TaskSwitcher Options" ResizeMode="NoResize" SizeToContent="WidthAndHeight"
+ShowInTaskbar="False" WindowStyle="ToolWindow" Background="{x:Static SystemColors.WindowBrush}" Height="380"
+MaxWidth="350" Loaded="Window_Loaded">
     <Window.Resources>
     </Window.Resources>
     <Grid>
@@ -35,6 +35,10 @@
                 running with higher privileges than your user account are in focus.<LineBreak />
                 <LineBreak />
                 <Italic>* Requires a restart of TaskSwitcher</Italic>
+            </TextBlock>
+            <CheckBox x:Name="RunOnStartup" Margin="5,5,5,1" Content="Run on Startup"/>
+            <TextBlock Margin="25,0,5,10" FontSize="10" Foreground="DimGray" TextWrapping="Wrap">
+                Automatically start TaskSwitcher when Windows starts.
             </TextBlock>
             <Grid Margin="5">
                 <Grid.ColumnDefinitions>

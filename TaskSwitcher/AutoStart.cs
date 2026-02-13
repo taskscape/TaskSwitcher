@@ -67,7 +67,7 @@ namespace TaskSwitcher
         {
             try
             {
-                string exeLocation = Assembly.GetEntryAssembly().Location;
+                string exeLocation = Environment.ProcessPath ?? Assembly.GetEntryAssembly()?.Location;
 
                 //Windows Script Host Shell Object
                 Type t = Type.GetTypeFromCLSID(new Guid("72C24DD5-D70A-438B-8A42-98424B88AFB8"));

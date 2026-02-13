@@ -180,6 +180,12 @@ namespace TaskSwitcher
                 }
 
             };
+
+            // Refresh menu state before showing
+            _notifyIcon.ContextMenuStrip.Opening += (s, e) =>
+            {
+                runOnStartupMenuItem.Checked = new AutoStart().IsEnabled;
+            };
         }
 
         private static void RunOnStartup(// TODO MenuItem is no longer supported. Use ToolStripMenuItem instead. For more details see https://docs.microsoft.com/en-us/dotnet/core/compatibility/winforms#removed-controls

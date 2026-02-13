@@ -1,82 +1,68 @@
 #define MyAppName "TaskSwitcher"
 #define MyAppPublisher "Taskscape Ltd"
-#define MyAppURL "http://www.taskscape.com"
+#define MyAppURL "https://www.taskscape.com"
 #define MyAppExeName "TaskSwitcher.exe"
-#define MyAppPath SourcePath + "ProgramFiles"
-#define MyAppVer = GetFileVersion(MyAppPath + "\TaskSwitcher.exe")
+#define MyAppVersion "1.0.0"
+#define MyAppPath "..\TaskSwitcher\bin\Release\net10.0-windows7.0\win-x64\publish"
 
 [Setup]
+; App Information
 AppId={{A5AF4C34-70A7-4D3B-BA18-E49C0AEEA5E6}
 AppMutex=DBDE24E4-91F6-11DF-B495-C536DFD72085-TaskSwitcher
 AppName={#MyAppName}
-AppVerName={#MyAppName} v{#MyAppVer}
+AppVersion={#MyAppVersion}
+AppVerName={#MyAppName} v{#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
+
+; Installation Settings
 DefaultDirName={pf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
-OutputBaseFilename=TaskSwitcher-setup
-Compression=lzma
+AllowNoIcons=yes
+LicenseFile=..\LICENSE.txt
+ShowLanguageDialog=auto
+
+; Output Settings
+OutputDir=Output
+OutputBaseFilename=TaskSwitcher-Setup-{#MyAppVersion}
+SetupIconFile=..\TaskSwitcher\icon.ico
+
+; Compression
+Compression=lzma2
 SolidCompression=yes
 
+; Architecture Settings (64-bit only)
+ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64
+
+; Privileges
+PrivilegesRequired=admin
+
+; Uninstall Settings
+UninstallDisplayIcon={app}\{#MyAppExeName}
+UninstallDisplayName={#MyAppName}
+
 [Languages]
-Name: english; MessagesFile: compiler:Default.isl
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [InstallDelete]
 Type: files; Name: "{commonstartup}\{#MyAppName}.lnk"
 
 [Tasks]
-Name: desktopicon; Description: {cm:CreateDesktopIcon}; GroupDescription: {cm:AdditionalIcons}; Flags: unchecked
-Name: startupfolder; Description: Startup with Windows
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "startupfolder"; Description: "Start with Windows"; GroupDescription: "Additional tasks:"
 
 [Files]
-Source: {#MyAppPath}\TaskSwitcher.exe; DestDir: {app}; Flags: ignoreversion
-Source: {#MyAppPath}\*.dll; DestDir: {app}; Flags: ignoreversion
-Source: {#MyAppPath}\TaskSwitcher.exe.config; DestDir: {app}; Flags: ignoreversion
-Source: {#MyAppPath}\LICENSE.txt; DestDir: {app}; Flags: ignoreversion
+Source: "{#MyAppPath}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: {group}\{#MyAppName}; Filename: {app}\{#MyAppExeName}
-Name: {group}\{cm:UninstallProgram,{#MyAppName}}; Filename: {uninstallexe}
-Name: {userdesktop}\{#MyAppName}; Filename: {app}\{#MyAppExeName}; Tasks: desktopicon
-Name: {userstartup}\{#MyAppName}; Filename: {app}\{#MyAppExeName}; Tasks: startupfolder
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
+Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{userstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: startupfolder
 
 [Run]
-Filename: {app}\{#MyAppExeName}; Description: {cm:LaunchProgram,{#MyAppName}}; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
 
-[Code]
-const
-
-// The following was stolen from the Witty Twitter installer.
-// http://code.google.com/p/wittytwitter/source/browse/trunk/Witty/Installer/Installer.iss
-
-dotnetRedistURL = 'http://www.microsoft.com/en-us/download/details.aspx?id=30653';
-dotnetRegKey = 'SOFTWARE\Microsoft\Net Framework Setup\NDP\v4.0';
-version = '4.5';
-
-function InitializeSetup(): Boolean;
-var
-    ErrorCode: Integer;
-    NetFrameWorkInstalled : Boolean;
-    InstallDotNetResponse : Boolean;
-begin
-	NetFrameWorkInstalled := RegKeyExists(HKLM,dotnetRegKey);
-	if NetFrameWorkInstalled =true then
-	   begin
-		  Result := true;
-	   end
-	else
-	   begin
-		  InstallDotNetResponse := MsgBox('This setup requires version ' + version + ' of the .NET Framework. Please download and install the .NET Framework and run this setup again. Do you want to download the framework now?',mbConfirmation,MB_YESNO)= idYes;
-		  if InstallDotNetResponse =false then
-			begin
-			  Result:=false;
-			end
-		  else
-			begin
-			  Result:=false;
-			  ShellExec('open',dotnetRedistURL,'','',SW_SHOWNORMAL,ewNoWait,ErrorCode);
-			end;
-	   end;
-	end;
