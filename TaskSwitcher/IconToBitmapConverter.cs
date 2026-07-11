@@ -26,6 +26,7 @@ namespace TaskSwitcher
                 bitmapImage.StreamSource = memory;
                 bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
                 bitmapImage.EndInit();
+                bitmapImage.Freeze();
                 return bitmapImage;
             }
             catch (Exception ex)
@@ -47,6 +48,7 @@ namespace TaskSwitcher
             bitmapImage.StreamSource = memory;
             bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
             bitmapImage.EndInit();
+            bitmapImage.Freeze();
             return bitmapImage;
         }
     }
