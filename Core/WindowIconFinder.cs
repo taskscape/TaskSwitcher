@@ -19,7 +19,7 @@ namespace TaskSwitcher.Core
         public Icon Find(AppWindow window, WindowIconSize size)
         {
             // Try to get the icon from cache
-            Icon cachedIcon = _cache.GetIcon(window.HWnd, size);
+            Icon cachedIcon = _cache.GetIcon(window.CacheIdentity, size);
             if (cachedIcon != null)
             {
                 return cachedIcon;
@@ -31,7 +31,7 @@ namespace TaskSwitcher.Core
             // Cache the icon
             if (icon != null)
             {
-                _cache.SetIcon(window.HWnd, size, icon);
+                _cache.SetIcon(window.CacheIdentity, size, icon);
             }
 
             return icon;

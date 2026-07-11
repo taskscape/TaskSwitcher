@@ -11,24 +11,24 @@ namespace TaskSwitcher.Core
     public interface IIconCacheService
     {
         /// <summary>
-        /// Gets a cached Icon by window handle and size, or null if not cached.
+        /// Gets a cached Icon by window lifetime identity and size, or null if not cached.
         /// </summary>
-        Icon GetIcon(IntPtr windowHandle, WindowIconSize size);
+        Icon GetIcon(WindowCacheIdentity windowIdentity, WindowIconSize size);
 
         /// <summary>
-        /// Caches an Icon by window handle and size.
+        /// Caches an Icon by window lifetime identity and size.
         /// </summary>
-        void SetIcon(IntPtr windowHandle, WindowIconSize size, Icon icon);
+        void SetIcon(WindowCacheIdentity windowIdentity, WindowIconSize size, Icon icon);
 
         /// <summary>
-        /// Gets a cached BitmapSource by window handle and size, or null if not cached.
+        /// Gets a cached BitmapSource by window lifetime identity and size, or null if not cached.
         /// </summary>
-        BitmapSource GetBitmapImage(IntPtr windowHandle, WindowIconSize size);
+        BitmapSource GetBitmapImage(WindowCacheIdentity windowIdentity, WindowIconSize size);
 
         /// <summary>
         /// Caches a BitmapSource by window handle and size with sliding expiration.
         /// </summary>
-        void SetBitmapImage(IntPtr windowHandle, WindowIconSize size, BitmapSource bitmapImage);
+        void SetBitmapImage(WindowCacheIdentity windowIdentity, WindowIconSize size, BitmapSource bitmapImage);
 
         /// <summary>
         /// Gets or sets a generic cached value by key.

@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using ManagedWinapi.Windows;
 
 namespace TaskSwitcher.Core
@@ -15,13 +17,44 @@ namespace TaskSwitcher.Core
     public class AppWindow(IntPtr HWnd) : SystemWindow(HWnd)
     {
         private static readonly TimeSpan ProcessTitleCacheDuration = TimeSpan.FromHours(1);
+        private static long _nextFallbackCacheIdentity;
+        private readonly object _cacheIdentityLock = new();
+        private WindowCacheIdentity? _cacheIdentity;
+
+        public WindowCacheIdentity CacheIdentity
+        {
+            get
+            {
+                if (_cacheIdentity.HasValue)
+                {
+                    return _cacheIdentity.Value;
+                }
+
+                lock (_cacheIdentityLock)
+                {
+                    if (_cacheIdentity.HasValue)
+                    {
+                        return _cacheIdentity.Value;
+                    }
+
+                    WindowCacheIdentity identity = CreateCacheIdentity();
+                    _cacheIdentity = identity;
+                    return identity;
+                }
+            }
+        }
 
         public string ProcessTitle
         {
             get
             {
-                string key = "ProcessTitle-" + HWnd;
-                return IconCacheService.Instance.GetOrSet(key, () => Process.ProcessName, ProcessTitleCacheDuration);
+                WindowCacheIdentity identity = CacheIdentity;
+                string key = identity.BuildCacheKey("ProcessTitle-");
+                return IconCacheService.Instance.GetOrSet(key, () =>
+                {
+                    using Process process = Process.GetProcessById((int)identity.ProcessId);
+                    return process.ProcessName;
+                }, ProcessTitleCacheDuration);
             }
         }
 
@@ -29,7 +62,7 @@ namespace TaskSwitcher.Core
 
         public Icon SmallWindowIcon => new WindowIconFinder().Find(this, WindowIconSize.Small);
 
-        public string ExecutablePath => GetExecutablePath(Process.Id);
+        public string ExecutablePath => GetExecutablePath((int)CacheIdentity.ProcessId);
 
         /// <summary>
         /// Sets the focus to this window and brings it to the foreground.
@@ -188,6 +221,35 @@ namespace TaskSwitcher.Core
             {
                 WinApi.CloseHandle(hprocess);
             }
+        }
+
+        private WindowCacheIdentity CreateCacheIdentity()
+        {
+            WinApi.GetWindowThreadProcessId(HWnd, out uint processId);
+            long processStartTimeUtcTicks = 0;
+
+            if (processId != 0)
+            {
+                try
+                {
+                    using Process process = Process.GetProcessById((int)processId);
+                    processStartTimeUtcTicks = process.StartTime.ToUniversalTime().Ticks;
+                }
+                catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or
+                                                  NotSupportedException or Win32Exception)
+                {
+                    // Some protected or short-lived processes do not expose their start time.
+                }
+            }
+
+            if (processStartTimeUtcTicks == 0)
+            {
+                // Do not share cached metadata when a stable process lifetime cannot be read.
+                // A negative per-wrapper discriminator cannot collide with real DateTime ticks.
+                processStartTimeUtcTicks = -Interlocked.Increment(ref _nextFallbackCacheIdentity);
+            }
+
+            return new WindowCacheIdentity(HWnd, processId, processStartTimeUtcTicks);
         }
     }
 }

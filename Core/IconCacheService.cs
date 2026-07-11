@@ -71,24 +71,24 @@ namespace TaskSwitcher.Core
         }
 
         /// <summary>
-        /// Gets a cached Icon by window handle and size, or null if not cached.
+        /// Gets a cached Icon by window lifetime identity and size, or null if not cached.
         /// </summary>
-        public Icon GetIcon(IntPtr windowHandle, WindowIconSize size)
+        public Icon GetIcon(WindowCacheIdentity windowIdentity, WindowIconSize size)
         {
             var cache = _iconCache;
-            string cacheKey = BuildIconCacheKey(windowHandle, size);
+            string cacheKey = BuildIconCacheKey(windowIdentity, size);
             return cache.Get<Icon>(cacheKey);
         }
 
         /// <summary>
-        /// Caches an Icon by window handle and size.
+        /// Caches an Icon by window lifetime identity and size.
         /// </summary>
-        public void SetIcon(IntPtr windowHandle, WindowIconSize size, Icon icon)
+        public void SetIcon(WindowCacheIdentity windowIdentity, WindowIconSize size, Icon icon)
         {
             if (icon == null) return;
 
             var cache = _iconCache;
-            string cacheKey = BuildIconCacheKey(windowHandle, size);
+            string cacheKey = BuildIconCacheKey(windowIdentity, size);
             var options = new MemoryCacheEntryOptions
             {
                 SlidingExpiration = LongCacheDuration
@@ -114,24 +114,24 @@ namespace TaskSwitcher.Core
         }
 
         /// <summary>
-        /// Gets a cached BitmapSource by window handle and size, or null if not cached.
+        /// Gets a cached BitmapSource by window lifetime identity and size, or null if not cached.
         /// </summary>
-        public BitmapSource GetBitmapImage(IntPtr windowHandle, WindowIconSize size)
+        public BitmapSource GetBitmapImage(WindowCacheIdentity windowIdentity, WindowIconSize size)
         {
             var cache = _iconCache;
-            string cacheKey = BuildBitmapCacheKey(windowHandle, size);
+            string cacheKey = BuildBitmapCacheKey(windowIdentity, size);
             return cache.Get<BitmapSource>(cacheKey);
         }
 
         /// <summary>
         /// Caches a BitmapSource by window handle and size with sliding expiration.
         /// </summary>
-        public void SetBitmapImage(IntPtr windowHandle, WindowIconSize size, BitmapSource bitmapImage)
+        public void SetBitmapImage(WindowCacheIdentity windowIdentity, WindowIconSize size, BitmapSource bitmapImage)
         {
             if (bitmapImage == null) return;
 
             var cache = _iconCache;
-            string cacheKey = BuildBitmapCacheKey(windowHandle, size);
+            string cacheKey = BuildBitmapCacheKey(windowIdentity, size);
             var options = new MemoryCacheEntryOptions
             {
                 SlidingExpiration = LongCacheDuration
@@ -229,44 +229,24 @@ namespace TaskSwitcher.Core
             _iconCache?.Dispose();
         }
 
-        private static string BuildIconCacheKey(IntPtr windowHandle, WindowIconSize size)
+        private static string BuildIconCacheKey(WindowCacheIdentity windowIdentity, WindowIconSize size)
         {
             const string Prefix = "Icon-";
-            return BuildCacheKey(Prefix, windowHandle, size);
+            return BuildCacheKey(Prefix, windowIdentity, size);
         }
 
-        private static string BuildBitmapCacheKey(IntPtr windowHandle, WindowIconSize size)
+        private static string BuildBitmapCacheKey(WindowCacheIdentity windowIdentity, WindowIconSize size)
         {
             const string Prefix = "BitmapImage-";
-            return BuildCacheKey(Prefix, windowHandle, size);
+            return BuildCacheKey(Prefix, windowIdentity, size);
         }
 
-        private static string BuildCacheKey(string prefix, IntPtr windowHandle, WindowIconSize size)
+        internal static string BuildCacheKey(
+            string prefix,
+            WindowCacheIdentity windowIdentity,
+            WindowIconSize size)
         {
-            var sizeString = GetSizeString(size);
-            var handle = (nint)windowHandle;
-
-            // Pre-format handle to determine exact digit count (avoids over-allocation)
-            Span<char> handleBuffer = stackalloc char[24]; // max nint digits + sign
-            handle.TryFormat(handleBuffer, out int handleLength);
-
-            int totalLength = prefix.Length + handleLength + 1 + sizeString.Length;
-
-            return string.Create(
-                totalLength,
-                (prefix, handle, sizeString),
-                static (span, state) =>
-                {
-                    state.prefix.AsSpan().CopyTo(span);
-                    int pos = state.prefix.Length;
-
-                    state.handle.TryFormat(span[pos..], out int written);
-                    pos += written;
-
-                    span[pos++] = '-';
-
-                    state.sizeString.AsSpan().CopyTo(span[pos..]);
-                });
+            return $"{windowIdentity.BuildCacheKey(prefix)}-{GetSizeString(size)}";
         }
 
         private static string GetSizeString(WindowIconSize size) => size switch

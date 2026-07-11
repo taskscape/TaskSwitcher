@@ -25,15 +25,15 @@ namespace TaskSwitcher
         {
             IntPtr handle = (IntPtr)value;
             WindowIconSize iconSize = ShouldUseSmallTaskbarIcons() ? WindowIconSize.Small : WindowIconSize.Large;
+            AppWindow window = new(handle);
 
             // Try to get from unified cache first
-            if (_cache.GetBitmapImage(handle, iconSize) is BitmapImage cachedImage)
+            if (_cache.GetBitmapImage(window.CacheIdentity, iconSize) is BitmapImage cachedImage)
             {
                 return cachedImage;
             }
 
             // Create new icon and cache it
-            AppWindow window = new(handle);
             Icon icon = iconSize == WindowIconSize.Small ? window.SmallWindowIcon : window.LargeWindowIcon;
             BitmapImage iconImage = _iconToBitmapConverter.Convert(icon);
             if (iconImage == null)
@@ -42,7 +42,7 @@ namespace TaskSwitcher
                 iconImage.Freeze();
             }
 
-            _cache.SetBitmapImage(handle, iconSize, iconImage);
+            _cache.SetBitmapImage(window.CacheIdentity, iconSize, iconImage);
 
             return iconImage;
         }
