@@ -5,7 +5,7 @@ using System.Threading;
 using System.Windows.Media.Imaging;
 using Microsoft.Extensions.Caching.Memory;
 
-[assembly: InternalsVisibleTo("Core.UnitTests")]
+[assembly: InternalsVisibleTo("TaskSwitcher.Core.UnitTests")]
 
 namespace TaskSwitcher.Core
 {
