@@ -17,6 +17,7 @@
  */
 
 using System;
+using System.ComponentModel;
 using System.Configuration;
 using System.Diagnostics;
 using System.Reflection;
@@ -29,13 +30,17 @@ namespace TaskSwitcher
     internal class Program
     {
         private const string mutex_id = "DBDE24E4-91F6-11DF-B495-C536DFD72085-TaskSwitcher";
+        private const int ErrorCancelled = 1223;
 
         [STAThread]
         private static void Main()
         {
             using (PerfRecorder.Measure("AppStartup"))
             {
-                RunAsAdministratorIfConfigured();
+                if (!RunAsAdministratorIfConfigured())
+                {
+                    return;
+                }
 
                 using Mutex mutex = new(false, mutex_id);
                 bool hasHandle = false;
@@ -71,10 +76,10 @@ namespace TaskSwitcher
             }
         }
 
-        private static void RunAsAdministratorIfConfigured()
+        private static bool RunAsAdministratorIfConfigured()
         {
             using var perf = PerfRecorder.Measure("RunAsAdministratorIfConfigured");
-            if (!RunAsAdminRequested() || IsRunAsAdmin()) return;
+            if (!RunAsAdminRequested() || IsRunAsAdmin()) return true;
             ProcessStartInfo proc = new()
             {
                 UseShellExecute = true,
@@ -85,11 +90,38 @@ namespace TaskSwitcher
 
             if (string.IsNullOrEmpty(proc.FileName))
             {
-                return;
+                ReportElevationFailure(new InvalidOperationException(
+                    "The TaskSwitcher executable path could not be determined."));
+                return false;
             }
 
-            using Process elevatedProcess = Process.Start(proc);
-            Environment.Exit(0);
+            try
+            {
+                using Process elevatedProcess = Process.Start(proc);
+                return false;
+            }
+            catch (Win32Exception ex) when (ex.NativeErrorCode == ErrorCancelled)
+            {
+                // The user declined the UAC prompt. Exit the unelevated instance quietly.
+                DiagnosticLogger.LogInfo("Program.RunAsAdministratorIfConfigured", "Elevation was canceled by the user.");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                ReportElevationFailure(ex);
+                return false;
+            }
+        }
+
+        private static void ReportElevationFailure(Exception exception)
+        {
+            DiagnosticLogger.LogException("Program.RunAsAdministratorIfConfigured", exception);
+            System.Windows.MessageBox.Show(
+                "TaskSwitcher could not restart with administrator privileges. " +
+                "Check your Windows security settings or start TaskSwitcher manually as administrator.",
+                "Unable to Start as Administrator",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
         }
 
         private static bool RunAsAdminRequested()
