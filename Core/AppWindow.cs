@@ -175,16 +175,19 @@ namespace TaskSwitcher.Core
 
             try
             {
-                if (WinApi.QueryFullProcessImageName(hprocess, 0, buffer, out int _))
+                uint bufferLength = (uint) buffer.Capacity;
+                if (WinApi.QueryFullProcessImageName(hprocess, 0, buffer, ref bufferLength))
                 {
-                    return buffer.ToString();
+                    return buffer.ToString(0, (int) bufferLength);
                 }
+
+                // Capture the query error before CloseHandle runs in the finally block.
+                throw new Win32Exception(Marshal.GetLastWin32Error());
             }
             finally
             {
                 WinApi.CloseHandle(hprocess);
             }
-            throw new Win32Exception(Marshal.GetLastWin32Error());
         }
     }
 }
