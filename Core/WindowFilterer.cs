@@ -48,6 +48,7 @@ namespace TaskSwitcher.Core
         {
             return windows
                 .AsParallel()
+                .AsOrdered()
                 .Select(w => CreateFilterResult(w, filterText, processFilterText))
                 .Where(r => ShouldIncludeWindow(r.ResultsTitle, r.ResultsProcessTitle, processFilterText))
                 .AsSequential() // Return to sequential for ordering operations
