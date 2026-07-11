@@ -11,7 +11,8 @@ namespace TaskSwitcher.Core
     {
         public static string CodeToString(uint virtualKey)
         {
-            uint thread = WinApi.GetWindowThreadProcessId(Process.GetCurrentProcess().MainWindowHandle, out uint procId);
+            using Process currentProcess = Process.GetCurrentProcess();
+            uint thread = WinApi.GetWindowThreadProcessId(currentProcess.MainWindowHandle, out uint procId);
             IntPtr hkl = WinApi.GetKeyboardLayout(thread);
 
             if (hkl == IntPtr.Zero)

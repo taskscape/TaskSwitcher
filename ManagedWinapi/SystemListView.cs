@@ -19,6 +19,7 @@
  */
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Runtime.InteropServices;
 using System.Drawing;
@@ -63,22 +64,23 @@ namespace ManagedWinapi.Windows
         {
             get
             {
+                using Process process = Process.GetProcessById(systemWindow.ProcessId);
                 LVITEM lvi = new();
                 lvi.cchTextMax = 300;
                 lvi.iItem = index;
                 lvi.iSubItem = subIndex;
                 lvi.stateMask = 0xffffffff;
                 lvi.mask = LVIF_IMAGE | LVIF_STATE | LVIF_TEXT;
-                ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(systemWindow.Process, 301);
+                ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(process, 301);
                 lvi.pszText = tc.Location;
-                ProcessMemoryChunk lc = ProcessMemoryChunk.AllocStruct(systemWindow.Process, lvi);
+                ProcessMemoryChunk lc = ProcessMemoryChunk.AllocStruct(process, lvi);
                 ApiHelper.FailIfZero(SystemWindow.SendMessage(new HandleRef(systemWindow, systemWindow.HWnd), SystemListView.LVM_GETITEM, IntPtr.Zero, lc.Location));
                 lvi = (LVITEM)lc.ReadToStructure(0, typeof(LVITEM));
                 lc.Dispose();
                 if (lvi.pszText != tc.Location)
                 {
                     tc.Dispose();
-                    tc = new ProcessMemoryChunk(systemWindow.Process, lvi.pszText, lvi.cchTextMax);
+                    tc = new ProcessMemoryChunk(process, lvi.pszText, lvi.cchTextMax);
                 }
                 byte[] tmp = tc.Read();
                 string title = Encoding.Default.GetString(tmp);
@@ -97,13 +99,14 @@ namespace ManagedWinapi.Windows
         {
             get
             {
+                using Process process = Process.GetProcessById(systemWindow.ProcessId);
                 List<SystemListViewColumn> result = new();
                 LVCOLUMN lvc = new();
                 lvc.cchTextMax = 300;
                 lvc.mask = LVCF_FMT | LVCF_SUBITEM | LVCF_TEXT | LVCF_WIDTH;
-                ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(systemWindow.Process, 301);
+                ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(process, 301);
                 lvc.pszText = tc.Location;
-                ProcessMemoryChunk lc = ProcessMemoryChunk.AllocStruct(systemWindow.Process, lvc);
+                ProcessMemoryChunk lc = ProcessMemoryChunk.AllocStruct(process, lvc);
                 for (int i = 0; ; i++)
                 {
                     IntPtr ok = SystemWindow.SendMessage(new HandleRef(systemWindow, systemWindow.HWnd), LVM_GETCOLUMN, new IntPtr(i), lc.Location);
@@ -205,8 +208,9 @@ namespace ManagedWinapi.Windows
         {
             get
             {
+                using Process process = Process.GetProcessById(sw.ProcessId);
                 POINT pt = new();
-                ProcessMemoryChunk c = ProcessMemoryChunk.AllocStruct(sw.Process, pt);
+                using ProcessMemoryChunk c = ProcessMemoryChunk.AllocStruct(process, pt);
                 ApiHelper.FailIfZero(SystemWindow.SendMessage(new HandleRef(sw, sw.HWnd), SystemListView.LVM_GETITEMPOSITION, new IntPtr(index), c.Location));
                 pt = (POINT)c.ReadToStructure(0, typeof(POINT));
                 return new Point(pt.X, pt.Y);
@@ -221,8 +225,9 @@ namespace ManagedWinapi.Windows
         {
             get
             {
+                using Process process = Process.GetProcessById(sw.ProcessId);
                 RECT rectangle = new();
-                ProcessMemoryChunk c = ProcessMemoryChunk.AllocStruct(sw.Process, rectangle);
+                using ProcessMemoryChunk c = ProcessMemoryChunk.AllocStruct(process, rectangle);
                 SystemWindow.SendMessage(new HandleRef(sw, sw.HWnd), SystemListView.LVM_GETITEMRECT, new IntPtr(index), c.Location);
                 rectangle = (RECT)c.ReadToStructure(0, typeof(RECT));
                 return rectangle;

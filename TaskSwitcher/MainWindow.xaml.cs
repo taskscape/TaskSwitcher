@@ -235,7 +235,7 @@ MenuItem menuItem)
                         {
                             try
                             {
-                                Process.Start(new ProcessStartInfo
+                                using Process browserProcess = Process.Start(new ProcessStartInfo
                                 {
                                     FileName = "https://github.com/Taskscape/TaskSwitcher/releases/latest",
                                     UseShellExecute = true
@@ -537,7 +537,7 @@ MenuItem menuItem)
 
         private static bool AreWindowsRelated(SystemWindow window1, SystemWindow window2)
         {
-            return window1.HWnd == window2.HWnd || window1.Process.Id == window2.Process.Id;
+            return window1.HWnd == window2.HWnd || window1.ProcessId == window2.ProcessId;
         }
 
         private void FocusItemInList(InitialFocus focus, bool foregroundWindowMovedToBottom)

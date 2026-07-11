@@ -750,16 +750,24 @@ namespace ManagedWinapi.Windows
         }
 
         /// <summary>
-        /// The process which created this window.
+        /// The identifier of the process which created this window.
         /// </summary>
-        public Process Process
+        public int ProcessId
         {
             get
             {
-                int pid;
-                GetWindowThreadProcessId(HWnd, out pid);
-                return Process.GetProcessById(pid);
+                GetWindowThreadProcessId(HWnd, out int processId);
+                return processId;
             }
+        }
+
+        /// <summary>
+        /// The process which created this window.
+        /// </summary>
+        /// <remarks>The caller owns the returned instance and must dispose it.</remarks>
+        public Process Process
+        {
+            get { return Process.GetProcessById(ProcessId); }
         }
 
         /// <summary>
@@ -771,7 +779,8 @@ namespace ManagedWinapi.Windows
             {
                 int pid;
                 int tid = GetWindowThreadProcessId(HWnd, out pid);
-                foreach (ProcessThread t in Process.GetProcessById(pid).Threads)
+                using Process process = Process.GetProcessById(pid);
+                foreach (ProcessThread t in process.Threads)
                 {
                     if (t.Id == tid) return t;
                 }

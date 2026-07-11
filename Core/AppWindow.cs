@@ -225,7 +225,7 @@ namespace TaskSwitcher.Core
 
         private WindowCacheIdentity CreateCacheIdentity()
         {
-            WinApi.GetWindowThreadProcessId(HWnd, out uint processId);
+            uint processId = (uint)ProcessId;
             long processStartTimeUtcTicks = 0;
 
             if (processId != 0)

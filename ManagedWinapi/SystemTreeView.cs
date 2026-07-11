@@ -19,6 +19,7 @@
  */
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
@@ -109,13 +110,14 @@ namespace ManagedWinapi.Windows
         {
             get
             {
-                ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(sw.Process, 2001);
+                using Process process = Process.GetProcessById(sw.ProcessId);
+                ProcessMemoryChunk tc = ProcessMemoryChunk.Alloc(process, 2001);
                 TVITEM tvi = new();
                 tvi.hItem = handle;
                 tvi.mask = TVIF_TEXT;
                 tvi.cchTextMax = 2000;
                 tvi.pszText = tc.Location;
-                ProcessMemoryChunk ic = ProcessMemoryChunk.AllocStruct(sw.Process, tvi);
+                ProcessMemoryChunk ic = ProcessMemoryChunk.AllocStruct(process, tvi);
                 SystemWindow.SendMessage(new HandleRef(sw, sw.HWnd), TVM_GETITEM, IntPtr.Zero, ic.Location);
                 tvi = (TVITEM)ic.ReadToStructure(0, typeof(TVITEM));
                 if (tvi.pszText != tc.Location) MessageBox.Show(tvi.pszText + " != " + tc.Location);

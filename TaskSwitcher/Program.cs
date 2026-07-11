@@ -88,7 +88,7 @@ namespace TaskSwitcher
                 return;
             }
 
-            Process.Start(proc);
+            using Process elevatedProcess = Process.Start(proc);
             Environment.Exit(0);
         }
 
@@ -135,7 +135,8 @@ namespace TaskSwitcher
             }
 
             // Fallback to MainModule (can be null in some hosting scenarios)
-            string modulePath = Process.GetCurrentProcess().MainModule?.FileName;
+            using Process currentProcess = Process.GetCurrentProcess();
+            string modulePath = currentProcess.MainModule?.FileName;
             if (!string.IsNullOrWhiteSpace(modulePath))
             {
                 return modulePath;

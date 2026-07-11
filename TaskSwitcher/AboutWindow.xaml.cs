@@ -23,7 +23,7 @@ namespace TaskSwitcher
 
             try
             {
-                Process.Start(new ProcessStartInfo
+                using Process browserProcess = Process.Start(new ProcessStartInfo
                 {
                     FileName = navigateUri,
                     UseShellExecute = true
