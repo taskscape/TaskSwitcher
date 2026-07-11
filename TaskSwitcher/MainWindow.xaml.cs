@@ -36,7 +36,7 @@ namespace TaskSwitcher
         private ObservableCollection<AppWindowViewModel> _filteredWindowList;
         private NotifyIcon _notifyIcon;
         private HotKey _hotkey;
-        private List<AppWindowViewModel> _cachedWindowList;
+        private IntPtr[] _cachedWindowHandles;
         private DateTime _lastWindowLoad = DateTime.MinValue;
         private readonly TimeSpan _windowCacheDuration = TimeSpan.FromSeconds(1);
 
@@ -296,17 +296,26 @@ MenuItem menuItem)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    if (_cachedWindowList != null && (DateTime.UtcNow - _lastWindowLoad) < _windowCacheDuration)
+                    IntPtr[] windowHandles;
+                    if (_cachedWindowHandles != null && (DateTime.UtcNow - _lastWindowLoad) < _windowCacheDuration)
                     {
-                        return new List<AppWindowViewModel>(_cachedWindowList);
+                        windowHandles = _cachedWindowHandles;
+                    }
+                    else
+                    {
+                        using var perfWindows = PerfRecorder.Measure("EnumerateWindows");
+                        windowHandles = windowFinder.GetWindowsLazy()
+                            .Select(window => window.HWnd)
+                            .ToArray();
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        _cachedWindowHandles = windowHandles;
+                        _lastWindowLoad = DateTime.UtcNow;
                     }
 
-                    using var perfWindows = PerfRecorder.Measure("EnumerateWindows");
-                    var windows = windowFinder.GetWindowsLazy().ToList();
-                    var viewModels = windows.Select(window => new AppWindowViewModel(window)).ToList();
-                    _cachedWindowList = viewModels;
-                    _lastWindowLoad = DateTime.UtcNow;
-                    return new List<AppWindowViewModel>(viewModels);
+                    return windowHandles
+                        .Select(handle => new AppWindowViewModel(new AppWindow(handle)))
+                        .ToList();
                 }, cancellationToken);
                 
                 // Check for cancellation before proceeding
@@ -678,6 +687,7 @@ MenuItem menuItem)
                 _unfilteredWindowList = null;
                 _filteredWindowList = null;
                 _foregroundWindow = null;
+                _cachedWindowHandles = null;
             }
             
             // Free unmanaged resources
@@ -970,6 +980,10 @@ MenuItem menuItem)
 
             _filteredWindowList.Remove(window);
             _unfilteredWindowList.Remove(window);
+
+            // Do not allow a recently closed handle to be returned by the short-lived cache.
+            _cachedWindowHandles = null;
+            _lastWindowLoad = DateTime.MinValue;
             
             // Properly dispose the removed window
             window.Dispose();
