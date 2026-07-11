@@ -228,7 +228,23 @@ MenuItem menuItem)
                         "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
                     if (result == MessageBoxResult.Yes)
                     {
-                        Process.Start("https://github.com/Taskscape/TaskSwitcher/releases/latest");
+                        try
+                        {
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = "https://github.com/Taskscape/TaskSwitcher/releases/latest",
+                                UseShellExecute = true
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            DiagnosticLogger.LogException("MainWindow.OpenReleasePage", ex);
+                            MessageBox.Show(
+                                "TaskSwitcher could not open the download page in your default browser.",
+                                "Unable to Open Browser",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Warning);
+                        }
                     }
                 }
                 else
