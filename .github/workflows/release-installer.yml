@@ -1,0 +1,77 @@
+name: Publish installer release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish Inno Setup installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate version tag and master ancestry
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_NAME -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
+            throw "Release tags must use the vMAJOR.MINOR.PATCH format (for example, v1.2.3)."
+          }
+
+          $version = $Matches.version
+          git fetch origin master --no-tags
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not fetch origin/master."
+          }
+
+          $tagCommit = (git rev-parse "$env:GITHUB_REF_NAME^{commit}").Trim()
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not resolve tag $env:GITHUB_REF_NAME to a commit."
+          }
+
+          git merge-base --is-ancestor $tagCommit origin/master
+          if ($LASTEXITCODE -ne 0) {
+            throw "Tag $env:GITHUB_REF_NAME does not reference a commit reachable from master."
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "commit=$tagCommit" >> $env:GITHUB_OUTPUT
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build installer
+        shell: pwsh
+        run: >-
+          ./Installer/Build-Installer.ps1
+          -Configuration Release
+          -Runtime win-x64
+          -Version '${{ steps.version.outputs.version }}'
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $installer = "Installer/Output/TaskSwitcher-Setup-$env:VERSION.exe"
+          if (-not (Test-Path $installer)) {
+            throw "Expected installer was not found: $installer"
+          }
+
+          gh release create $env:GITHUB_REF_NAME $installer `
+            --verify-tag `
+            --target '${{ steps.version.outputs.commit }}' `
+            --title "TaskSwitcher $env:VERSION" `
+            --generate-notes

@@ -3,10 +3,15 @@
 
 param(
     [string]$Configuration = "Release",
-    [string]$Runtime = "win-x64"
+    [string]$Runtime = "win-x64",
+    [string]$Version = "1.0.0"
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+    throw "Version must use the numeric major.minor.patch format (for example, 1.2.3)."
+}
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "TaskSwitcher Build and Package Script" -ForegroundColor Cyan
@@ -33,11 +38,15 @@ Write-Host ""
 Write-Host "Step 2: Building and publishing application..." -ForegroundColor Yellow
 Write-Host "  Configuration: $Configuration" -ForegroundColor Gray
 Write-Host "  Runtime: $Runtime" -ForegroundColor Gray
+Write-Host "  Version: $Version" -ForegroundColor Gray
 
 dotnet publish $projectPath `
     --configuration $Configuration `
     --runtime $Runtime `
     --self-contained true `
+    -p:Version=$Version `
+    -p:AssemblyVersion="$Version.0" `
+    -p:FileVersion="$Version.0" `
     -p:PublishSingleFile=false `
     -p:PublishReadyToRun=true `
     -p:IncludeNativeLibrariesForSelfExtract=true
@@ -77,7 +86,7 @@ if (-not (Test-Path $outputDir)) {
     New-Item -Path $outputDir -ItemType Directory | Out-Null
 }
 
-& $innoSetupCompiler $installerScript
+& $innoSetupCompiler "/DMyAppVersion=$Version" "/DMyAppPath=$publishPath" $installerScript
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
@@ -93,15 +102,15 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Build Complete!" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
-$installerPath = Get-ChildItem -Path $outputDir -Filter "TaskSwitcher-Setup-*.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if ($installerPath) {
+$installerPath = Join-Path $outputDir "TaskSwitcher-Setup-$Version.exe"
+if (Test-Path $installerPath) {
+    $installerFile = Get-Item $installerPath
     Write-Host ""
     Write-Host "Installer created at:" -ForegroundColor Green
-    Write-Host "  $($installerPath.FullName)" -ForegroundColor White
-    Write-Host "  Size: $([math]::Round($installerPath.Length / 1MB, 2)) MB" -ForegroundColor Gray
+    Write-Host "  $($installerFile.FullName)" -ForegroundColor White
+    Write-Host "  Size: $([math]::Round($installerFile.Length / 1MB, 2)) MB" -ForegroundColor Gray
 } else {
-    Write-Host ""
-    Write-Host "WARNING: Installer file not found in output directory" -ForegroundColor Yellow
+    throw "Installer file was not created at the expected path: $installerPath"
 }
 
 Write-Host ""

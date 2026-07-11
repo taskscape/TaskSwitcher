@@ -2,8 +2,12 @@
 #define MyAppPublisher "Taskscape Ltd"
 #define MyAppURL "https://www.taskscape.com"
 #define MyAppExeName "TaskSwitcher.exe"
+#ifndef MyAppVersion
 #define MyAppVersion "1.0.0"
+#endif
+#ifndef MyAppPath
 #define MyAppPath "..\TaskSwitcher\bin\Release\net10.0-windows7.0\win-x64\publish"
+#endif
 
 [Setup]
 ; App Information

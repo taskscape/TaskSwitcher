@@ -18,6 +18,12 @@ Run the build script from PowerShell:
 .\Build-Installer.ps1
 ```
 
+To build a specific version locally:
+
+```powershell
+.\Build-Installer.ps1 -Version 1.2.3
+```
+
 This script will:
 1. Clean previous builds
 2. Build and publish the TaskSwitcher application (Release, win-x64, self-contained)
@@ -65,6 +71,20 @@ The compiled installer will be created in the `Output` directory with the filena
 ```
 TaskSwitcher-Setup-{version}.exe
 ```
+
+## GitHub Releases
+
+Pushing a `vMAJOR.MINOR.PATCH` tag whose commit is reachable from `master` runs the
+`Publish installer release` GitHub Actions workflow. For example:
+
+```powershell
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+The workflow builds a versioned, self-contained win-x64 installer and publishes it
+as `TaskSwitcher-Setup-1.2.3.exe` on the corresponding GitHub release. A tag that is
+not on `master`, or does not use the required version format, is rejected.
 
 ## Customization
 
