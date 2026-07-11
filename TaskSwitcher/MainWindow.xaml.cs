@@ -218,40 +218,55 @@ MenuItem menuItem)
             timer.Tick += async (sender, args) =>
             {
                 timer.Stop();
-                Version latestVersion = await GetLatestVersion();
-                if (latestVersion != null && latestVersion > currentVersion)
+                try
                 {
-                    MessageBoxResult result = MessageBox.Show(
-                        string.Format(
-                            "TaskSwitcher v{0} is available (you have v{1}).\r\n\r\nDo you want to download it?",
-                            latestVersion, currentVersion),
-                        "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                    if (result == MessageBoxResult.Yes)
+                    Version latestVersion = await GetLatestVersion();
+                    if (latestVersion != null && latestVersion > currentVersion)
                     {
-                        try
+                        MessageBoxResult result = MessageBox.Show(
+                            string.Format(
+                                "TaskSwitcher v{0} is available (you have v{1}).\r\n\r\nDo you want to download it?",
+                                latestVersion, currentVersion),
+                            "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                        if (result == MessageBoxResult.Yes)
                         {
-                            Process.Start(new ProcessStartInfo
+                            try
                             {
-                                FileName = "https://github.com/Taskscape/TaskSwitcher/releases/latest",
-                                UseShellExecute = true
-                            });
+                                Process.Start(new ProcessStartInfo
+                                {
+                                    FileName = "https://github.com/Taskscape/TaskSwitcher/releases/latest",
+                                    UseShellExecute = true
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                DiagnosticLogger.LogException("MainWindow.OpenReleasePage", ex);
+                                MessageBox.Show(
+                                    "TaskSwitcher could not open the download page in your default browser.",
+                                    "Unable to Open Browser",
+                                    MessageBoxButton.OK,
+                                    MessageBoxImage.Warning);
+                            }
                         }
-                        catch (Exception ex)
-                        {
-                            DiagnosticLogger.LogException("MainWindow.OpenReleasePage", ex);
-                            MessageBox.Show(
-                                "TaskSwitcher could not open the download page in your default browser.",
-                                "Unable to Open Browser",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Warning);
-                        }
+
+                        return;
                     }
                 }
-                else
+                catch (OperationCanceledException ex)
                 {
-                    timer.Interval = new TimeSpan(24, 0, 0);
-                    timer.Start();
+                    // HttpClient reports request timeouts as cancellation. Do not allow an
+                    // exception from this async event handler to reach the WPF dispatcher.
+                    DiagnosticLogger.LogException("MainWindow.CheckForUpdates.Canceled", ex);
                 }
+                catch (Exception ex)
+                {
+                    // DispatcherTimer event handlers are async void, so every exception must
+                    // be contained here to prevent an update failure from terminating the app.
+                    DiagnosticLogger.LogException("MainWindow.CheckForUpdates", ex);
+                }
+
+                timer.Interval = TimeSpan.FromDays(1);
+                timer.Start();
             };
 
             timer.Interval = new TimeSpan(0, 0, 0);
