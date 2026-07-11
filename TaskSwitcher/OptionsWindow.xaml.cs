@@ -15,6 +15,7 @@ namespace TaskSwitcher
     {
         private readonly HotKey _hotkey;
         private HotkeyViewModel _hotkeyViewModel;
+        private bool _restoreHotkeyAfterPreview;
 
         public OptionsWindow()
         {
@@ -61,38 +62,35 @@ namespace TaskSwitcher
 
         private void Ok_Click(object sender, RoutedEventArgs e)
         {
-            var closeOptionsWindow = true;
+            bool enableHotKey = HotKeyCheckBox.IsChecked.GetValueOrDefault();
+            HotkeyState previousHotkeyState = HotkeyState.Capture(_hotkey);
 
             try
             {
                 _hotkey.Enabled = false;
-
-                if (Settings.Default.EnableHotKey)
-                {
-                    // Change the active hotkey
-                    _hotkey.Alt = _hotkeyViewModel.Alt;
-                    _hotkey.Shift = _hotkeyViewModel.Shift;
-                    _hotkey.Ctrl = _hotkeyViewModel.Ctrl;
-                    _hotkey.WindowsKey = _hotkeyViewModel.Windows;
-                    _hotkey.KeyCode = (Keys) KeyInterop.VirtualKeyFromKey(_hotkeyViewModel.KeyCode);
-                    _hotkey.Enabled = true;
-                }
-
-                _hotkey.SaveSettings();
+                _hotkey.Alt = _hotkeyViewModel.Alt;
+                _hotkey.Shift = _hotkeyViewModel.Shift;
+                _hotkey.Ctrl = _hotkeyViewModel.Ctrl;
+                _hotkey.WindowsKey = _hotkeyViewModel.Windows;
+                _hotkey.KeyCode = (Keys) KeyInterop.VirtualKeyFromKey(_hotkeyViewModel.KeyCode);
+                _hotkey.Enabled = enableHotKey;
             }
             catch (HotkeyAlreadyInUseException)
             {
+                RestoreHotkey(previousHotkeyState);
+
                 var boxText = "Sorry! The selected shortcut for activating TaskSwitcher is in use by another program. " +
                               "Please choose another.";
                 MessageBox.Show(boxText, "Shortcut already in use", MessageBoxButton.OK, MessageBoxImage.Warning);
-                closeOptionsWindow = false;
+                return;
             }
 
-            Settings.Default.EnableHotKey = HotKeyCheckBox.IsChecked.GetValueOrDefault();
+            // Commit settings only after the requested hotkey state has been applied successfully.
+            Settings.Default.EnableHotKey = enableHotKey;
             Settings.Default.AltTabHook = AltTabCheckBox.IsChecked.GetValueOrDefault();
             Settings.Default.AutoSwitch = AutoSwitch.IsChecked.GetValueOrDefault();
             Settings.Default.RunAsAdmin = RunAsAdministrator.IsChecked.GetValueOrDefault();
-            Settings.Default.Save();
+            _hotkey.SaveSettings();
 
             try
             {
@@ -106,9 +104,27 @@ namespace TaskSwitcher
                 MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
-            if (closeOptionsWindow)
+            Close();
+        }
+
+        private void RestoreHotkey(HotkeyState state)
+        {
+            _hotkey.Enabled = false;
+            _hotkey.KeyCode = state.KeyCode;
+            _hotkey.Alt = state.Alt;
+            _hotkey.Ctrl = state.Ctrl;
+            _hotkey.Shift = state.Shift;
+            _hotkey.WindowsKey = state.WindowsKey;
+
+            try
             {
-                Close();
+                _hotkey.Enabled = state.Enabled;
+            }
+            catch (HotkeyAlreadyInUseException)
+            {
+                // The previous shortcut was released briefly while testing the new one.
+                // If another process claimed it in that interval, leave it disabled.
+                _hotkey.Enabled = false;
             }
         }
 
@@ -205,6 +221,7 @@ namespace TaskSwitcher
         private void HotkeyPreview_OnGotFocus(object sender, RoutedEventArgs e)
         {
             // Disable the current hotkey while the hotkey field is active
+            _restoreHotkeyAfterPreview = _hotkey.Enabled;
             _hotkey.Enabled = false;
         }
 
@@ -212,7 +229,7 @@ namespace TaskSwitcher
         {
             try
             {
-                _hotkey.Enabled = true;
+                _hotkey.Enabled = _restoreHotkeyAfterPreview;
             }
             catch (HotkeyAlreadyInUseException)
             {
@@ -239,6 +256,26 @@ namespace TaskSwitcher
         private void HotKeyCheckBox_OnUnchecked(object sender, RoutedEventArgs e)
         {
             HotkeyPreview.IsEnabled = false;
+        }
+
+        private readonly record struct HotkeyState(
+            Keys KeyCode,
+            bool Alt,
+            bool Ctrl,
+            bool Shift,
+            bool WindowsKey,
+            bool Enabled)
+        {
+            internal static HotkeyState Capture(HotKey hotkey)
+            {
+                return new HotkeyState(
+                    hotkey.KeyCode,
+                    hotkey.Alt,
+                    hotkey.Ctrl,
+                    hotkey.Shift,
+                    hotkey.WindowsKey,
+                    hotkey.Enabled);
+            }
         }
     }
 }
