@@ -35,44 +35,51 @@ namespace TaskSwitcher
         [STAThread]
         private static void Main()
         {
-            using (PerfRecorder.Measure("AppStartup"))
+            try
             {
-                if (!RunAsAdministratorIfConfigured())
+                using (PerfRecorder.Measure("AppStartup"))
                 {
-                    return;
-                }
+                    if (!RunAsAdministratorIfConfigured())
+                    {
+                        return;
+                    }
 
-                using Mutex mutex = new(false, mutex_id);
-                bool hasHandle = false;
-                try
-                {
+                    using Mutex mutex = new(false, mutex_id);
+                    bool hasHandle = false;
                     try
                     {
-                        hasHandle = mutex.WaitOne(5000, false);
-                        if (hasHandle == false) return; //another instance exist
-                    }
-                    catch (AbandonedMutexException)
-                    {
-                        // Log the fact the mutex was abandoned in another process, it will still get aquired
-                    }
+                        try
+                        {
+                            hasHandle = mutex.WaitOne(5000, false);
+                            if (hasHandle == false) return; //another instance exist
+                        }
+                        catch (AbandonedMutexException)
+                        {
+                            // Log the fact the mutex was abandoned in another process, it will still get aquired
+                        }
 
 #if PORTABLE
                         MakePortable(Settings.Default);
 #endif
 
-                    MigrateUserSettings();
+                        MigrateUserSettings();
 
-                    App app = new()
+                        App app = new()
+                        {
+                            MainWindow = new MainWindow()
+                        };
+                        app.Run();
+                    }
+                    finally
                     {
-                        MainWindow = new MainWindow()
-                    };
-                    app.Run();
+                        if (hasHandle)
+                            mutex.ReleaseMutex();
+                    }
                 }
-                finally
-                {
-                    if (hasHandle)
-                        mutex.ReleaseMutex();
-                }
+            }
+            finally
+            {
+                DiagnosticLogger.ShutdownAsync().AsTask().GetAwaiter().GetResult();
             }
         }
 

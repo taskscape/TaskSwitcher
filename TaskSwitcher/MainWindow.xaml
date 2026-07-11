@@ -165,7 +165,7 @@
                                     <ColumnDefinition Width="106" />
                                 </Grid.ColumnDefinitions>
                                 <Image Height="19" Grid.Row="0" Grid.Column="0" Margin="3,0"
-                                       Opacity="{Binding IsBeingClosed, Converter={StaticResource ImageOpacityConverter}, Mode=OneTime}">
+                                       Opacity="{Binding IsBeingClosed, Converter={StaticResource ImageOpacityConverter}, Mode=OneWay}">
                                     <Image.Source>
                                         <PriorityBinding>
                                             <Binding Path="HWnd"
@@ -180,7 +180,7 @@
                                            Grid.Row="0" Grid.Column="1" Margin="3,0">
                                     <TextBlock.Foreground>
                                         <SolidColorBrush
-                                            Color="{Binding IsBeingClosed, Converter={StaticResource TitleColorConverter}, Mode=OneTime}" />
+                                            Color="{Binding IsBeingClosed, Converter={StaticResource TitleColorConverter}, Mode=OneWay}" />
                                     </TextBlock.Foreground>
                                 </TextBlock>
                                 <TextBlock
@@ -188,7 +188,7 @@
                                     Grid.Row="0" Grid.Column="2" Margin="0" TextAlignment="Right">
                                     <TextBlock.Foreground>
                                         <SolidColorBrush
-                                            Color="{Binding IsBeingClosed, Converter={StaticResource ProcessColorConverter}, Mode=OneTime}" />
+                                            Color="{Binding IsBeingClosed, Converter={StaticResource ProcessColorConverter}, Mode=OneWay}" />
                                     </TextBlock.Foreground>
                                 </TextBlock>
                             </Grid>

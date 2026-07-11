@@ -21,12 +21,23 @@ namespace TaskSwitcher
         /// </summary>
         internal static DiagnosticLogger Instance => LazyInstance.Value;
 
+        /// <summary>
+        /// Flushes and stops the logger if it was initialized during this process.
+        /// </summary>
+        internal static ValueTask ShutdownAsync()
+        {
+            return LazyInstance.IsValueCreated
+                ? LazyInstance.Value.DisposeAsync()
+                : ValueTask.CompletedTask;
+        }
+
         private readonly string _logDirectory;
         private readonly string _logFilePath;
         private readonly Channel<LogEntry> _logChannel;
         private readonly Task _writerTask;
         private readonly CancellationTokenSource _shutdownCts;
         private readonly TimeProvider _timeProvider;
+        private int _disposeStarted;
 
         /// <summary>
         /// Logging is enabled when a debugger is attached or the environment variable TASKSWITCHER_LOG=1 is set.
@@ -156,13 +167,18 @@ namespace TaskSwitcher
         /// </summary>
         public async ValueTask DisposeAsync()
         {
+            if (Interlocked.Exchange(ref _disposeStarted, 1) != 0)
+            {
+                return;
+            }
+
             _logChannel.Writer.TryComplete();
 
             try
             {
                 // Wait for remaining entries to be written (with timeout)
                 using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                await _writerTask.WaitAsync(timeoutCts.Token);
+                await _writerTask.WaitAsync(timeoutCts.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -170,7 +186,7 @@ namespace TaskSwitcher
             }
             finally
             {
-                await _shutdownCts.CancelAsync();
+                await _shutdownCts.CancelAsync().ConfigureAwait(false);
                 _shutdownCts.Dispose();
             }
         }
