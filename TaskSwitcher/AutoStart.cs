@@ -1,6 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace TaskSwitcher
@@ -67,7 +67,7 @@ namespace TaskSwitcher
         {
             try
             {
-                string exeLocation = Environment.ProcessPath ?? Assembly.GetEntryAssembly()?.Location;
+                string exeLocation = GetExecutablePath();
 
                 //Windows Script Host Shell Object
                 Type t = Type.GetTypeFromCLSID(new Guid("72C24DD5-D70A-438B-8A42-98424B88AFB8"));
@@ -95,6 +95,23 @@ namespace TaskSwitcher
                 throw new AutoStartException(
                     "It was not possible to create a shortcut to TaskSwitcher in the startup folder");
             }
+        }
+
+        private static string GetExecutablePath()
+        {
+            if (!string.IsNullOrWhiteSpace(Environment.ProcessPath))
+            {
+                return Environment.ProcessPath;
+            }
+
+            using Process currentProcess = Process.GetCurrentProcess();
+            string modulePath = currentProcess.MainModule?.FileName;
+            if (!string.IsNullOrWhiteSpace(modulePath))
+            {
+                return modulePath;
+            }
+
+            throw new InvalidOperationException("The TaskSwitcher executable path could not be determined.");
         }
     }
 
