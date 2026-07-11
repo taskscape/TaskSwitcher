@@ -706,14 +706,7 @@ MenuItem menuItem)
                 _cachedWindowHandles = null;
             }
             
-            // Free unmanaged resources
-            
             _disposed = true;
-        }
-        
-        ~MainWindow()
-        {
-            Dispose(false);
         }
         
         #endregion

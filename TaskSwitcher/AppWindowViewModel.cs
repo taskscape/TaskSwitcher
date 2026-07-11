@@ -133,11 +133,6 @@ namespace TaskSwitcher
             _disposed = true;
         }
 
-        ~AppWindowViewModel()
-        {
-            Dispose(false);
-        }
-
         #endregion
     }
 }

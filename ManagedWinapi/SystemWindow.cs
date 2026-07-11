@@ -841,35 +841,26 @@ namespace ManagedWinapi.Windows
         {
             get
             {
+                Bitmap bmp = null;
                 try
                 {
-                    Bitmap bmp = new(Position.Width, Position.Height);
-                    Graphics g = Graphics.FromImage(bmp);
-                    IntPtr pTarget = g.GetHdc();
-                    IntPtr pSource = CreateCompatibleDC(pTarget);
-                    IntPtr pOrig = SelectObject(pSource, bmp.GetHbitmap());
-                    PrintWindow(HWnd, pTarget, 0);
-                    IntPtr pNew = SelectObject(pSource, pOrig);
-                    DeleteObject(pOrig);
-                    DeleteObject(pNew);
-                    DeleteObject(pSource);
-                    g.ReleaseHdc(pTarget);
-                    g.Dispose();
+                    bmp = new Bitmap(Position.Width, Position.Height);
+                    using Graphics graphics = Graphics.FromImage(bmp);
+                    IntPtr targetDc = graphics.GetHdc();
+                    try
+                    {
+                        PrintWindow(HWnd, targetDc, 0);
+                    }
+                    finally
+                    {
+                        graphics.ReleaseHdc(targetDc);
+                    }
+
                     return bmp;
                 }
-                catch (ArgumentException)
+                catch (Exception ex) when (ex is ArgumentException or OutOfMemoryException or ExternalException)
                 {
-                    // Invalid bitmap dimensions
-                    return null;
-                }
-                catch (OutOfMemoryException)
-                {
-                    // Not enough memory to create bitmap
-                    return null;
-                }
-                catch (ExternalException)
-                {
-                    // GDI+ error
+                    bmp?.Dispose();
                     return null;
                 }
             }
@@ -1245,18 +1236,6 @@ namespace ManagedWinapi.Windows
 
         [DllImport("user32.dll")]
         static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
-
-        [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        static extern IntPtr CreateCompatibleDC(IntPtr hdc);
-
-        [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        static extern bool DeleteDC(IntPtr hdc);
-
-        [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
-
-        [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        static extern bool DeleteObject(IntPtr hObject);
 
         enum TernaryRasterOperations : uint
         {
