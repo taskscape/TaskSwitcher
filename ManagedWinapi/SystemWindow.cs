@@ -583,6 +583,9 @@ namespace ManagedWinapi.Windows
 
         private bool _isClosed = false;
 
+        /// <summary>
+        /// Gets whether this window has been closed and no longer has a valid native handle.
+        /// </summary>
         public bool IsClosed
         {
             get

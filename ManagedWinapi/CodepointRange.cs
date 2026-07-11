@@ -180,6 +180,7 @@ namespace ManagedWinapi
             return !ranges.Where((t, i) => t != cr.ranges[i]).Any();
         }
 
+        /// <inheritdoc />
         public override int GetHashCode()
         {
             return 3 * codepointCount + 7 * ranges.Length + 9 * FirstCodepoint + 11 * LastCodepoint;

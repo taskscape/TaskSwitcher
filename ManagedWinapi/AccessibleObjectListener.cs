@@ -67,9 +67,6 @@ namespace ManagedWinapi.Accessibility
         /// Enables this listener so that it reports accessible events.
         /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        /// <summary>
-        /// Enables this listener so that it reports accessible events.
-        /// </summary>
         public bool Enabled
         {
             get
@@ -87,9 +84,6 @@ namespace ManagedWinapi.Accessibility
         /// The minimal event type to listen to.
         /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        /// <summary>
-        /// The minimal event type to listen to.
-        /// </summary>
         public AccessibleEventType MinimalEventType
         {
             get { return min; }
@@ -100,9 +94,6 @@ namespace ManagedWinapi.Accessibility
         /// The maximal event type to listen to.
         /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        /// <summary>
-        /// The maximal event type to listen to.
-        /// </summary>
         public AccessibleEventType MaximalEventType
         {
             get { return max; }
@@ -114,10 +105,6 @@ namespace ManagedWinapi.Accessibility
         /// Default 0 listens to all processes.
         /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        /// <summary>
-        /// The Process ID to listen to.
-        /// Default 0 listens to all processes.
-        /// </summary>
         public UInt32 ProcessId
         {
             get { return processId; }
@@ -129,10 +116,6 @@ namespace ManagedWinapi.Accessibility
         /// Default 0 listens to all threads.
         /// </summary> 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        /// <summary>
-        /// The Thread ID to listen to.
-        /// Default 0 listens to all threads.
-        /// </summary> 
         public UInt32 ThreadId
         {
             get { return threadId; }
