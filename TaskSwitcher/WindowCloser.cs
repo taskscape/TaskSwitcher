@@ -1,28 +1,47 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaskSwitcher
 {
-    public class WindowCloser : IDisposable
+    public class WindowCloser
     {
-        private bool _isDisposed;
-
         private static readonly TimeSpan CheckInterval = TimeSpan.FromMilliseconds(125);
 
-        public async Task<bool> TryCloseAsync(AppWindowViewModel window)
+        public async Task<bool> TryCloseAsync(
+            AppWindowViewModel window,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
         {
-            window.IsBeingClosed = true;
-            window.AppWindow.Close();
+            ArgumentNullException.ThrowIfNull(window);
+            if (timeout <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeout), "The close timeout must be greater than zero.");
+            }
 
-            while (!_isDisposed && !window.AppWindow.IsClosedOrHidden)
-                await Task.Delay(CheckInterval).ConfigureAwait(false);
+            var appWindow = window.AppWindow;
 
-            return window.AppWindow.IsClosedOrHidden;
-        }
+            using CancellationTokenSource timeoutSource =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutSource.CancelAfter(timeout);
 
-        public void Dispose()
-        {
-            _isDisposed = true;
+            try
+            {
+                appWindow.Close();
+
+                while (!appWindow.IsClosedOrHidden)
+                {
+                    await Task.Delay(CheckInterval, timeoutSource.Token);
+                }
+
+                return true;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // The target ignored WM_CLOSE (for example, while showing an unsaved-work prompt).
+                return false;
+            }
+
         }
     }
 }

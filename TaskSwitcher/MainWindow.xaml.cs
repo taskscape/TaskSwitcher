@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -30,8 +31,10 @@ namespace TaskSwitcher
     public partial class MainWindow : Window, IDisposable
     {
         private static readonly HttpClient HttpClient = new();
+        private static readonly TimeSpan WindowCloseTimeout = TimeSpan.FromSeconds(10);
 
-        private WindowCloser _windowCloser;
+        private readonly WindowCloser _windowCloser = new();
+        private CancellationTokenSource _closeCancellationTokenSource;
         private List<AppWindowViewModel> _unfilteredWindowList;
         private ObservableCollection<AppWindowViewModel> _filteredWindowList;
         private NotifyIcon _notifyIcon;
@@ -367,7 +370,6 @@ MenuItem menuItem)
                 cancellationToken.ThrowIfCancellationRequested();
                 
                 _filteredWindowList = [.. _unfilteredWindowList];
-                _windowCloser = new WindowCloser();
                 
                 // Update UI before starting background formatting
                 lb.DataContext = null;
@@ -589,11 +591,7 @@ MenuItem menuItem)
 
         private void HideWindow()
         {
-            if (_windowCloser != null)
-            {
-                _windowCloser.Dispose();
-                _windowCloser = null;
-            }
+            CancelCurrentCloseOperation();
 
             _altTabAutoSwitch = false;
             Opacity = 0;
@@ -677,7 +675,7 @@ MenuItem menuItem)
                 _notifyIcon?.Dispose();
                 _hotkey?.Dispose();
                 _altTabHook?.Dispose();
-                _windowCloser?.Dispose();
+                CancelCurrentCloseOperation();
                 
                 // Clean up the cancellation token sources
                 if (_filterCancellationTokenSource != null)
@@ -714,7 +712,6 @@ MenuItem menuItem)
                 _notifyIcon = null;
                 _hotkey = null;
                 _altTabHook = null;
-                _windowCloser = null;
                 _unfilteredWindowList = null;
                 _filteredWindowList = null;
                 _foregroundWindow = null;
@@ -973,9 +970,43 @@ MenuItem menuItem)
                 AppWindowViewModel win = (AppWindowViewModel) lb.SelectedItem;
                 if (win != null)
                 {
-                    bool isClosed = await _windowCloser.TryCloseAsync(win);
-                    if (isClosed)
-                        RemoveWindow(win);
+                    CancelCurrentCloseOperation();
+                    CancellationTokenSource closeCancellationTokenSource = new();
+                    _closeCancellationTokenSource = closeCancellationTokenSource;
+                    win.IsBeingClosed = true;
+
+                    try
+                    {
+                        bool isClosed = await _windowCloser.TryCloseAsync(
+                            win,
+                            WindowCloseTimeout,
+                            closeCancellationTokenSource.Token);
+                        if (isClosed)
+                        {
+                            RemoveWindow(win);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Closing was canceled because the switcher was hidden or another
+                        // close operation superseded this one.
+                    }
+                    catch (Exception ex)
+                    {
+                        // This command handler is async void, so contain unexpected failures.
+                        DiagnosticLogger.LogException("MainWindow.CloseWindow", ex);
+                        win.IsBeingClosed = false;
+                    }
+                    finally
+                    {
+                        if (ReferenceEquals(_closeCancellationTokenSource, closeCancellationTokenSource))
+                        {
+                            _closeCancellationTokenSource = null;
+                            win.IsBeingClosed = false;
+                        }
+
+                        closeCancellationTokenSource.Dispose();
+                    }
                 }
             }
             else
@@ -983,6 +1014,11 @@ MenuItem menuItem)
                 HideWindow();
             }
             e.Handled = true;
+        }
+
+        private void CancelCurrentCloseOperation()
+        {
+            _closeCancellationTokenSource?.Cancel();
         }
 
         private void RemoveWindow(AppWindowViewModel window)
