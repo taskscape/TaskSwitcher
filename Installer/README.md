@@ -74,17 +74,33 @@ TaskSwitcher-Setup-{version}.exe
 
 ## GitHub Releases
 
-Pushing a `vMAJOR.MINOR.PATCH` tag whose commit is reachable from `master` runs the
-`Publish installer release` GitHub Actions workflow. For example:
+The `Publish installer release` GitHub Actions workflow runs the unit tests, builds a
+versioned, self-contained win-x64 installer and publishes it as
+`TaskSwitcher-Setup-{version}.exe` on a GitHub release.
+
+### Automatic releases
+
+Every push to `master` publishes a release. Its version is the newest
+`vMAJOR.MINOR.PATCH` tag with the patch number incremented (`v1.3.1` is followed by
+`v1.3.2`), and the workflow creates the matching tag on the commit it built. A commit
+that already carries a release tag is not released again.
+
+The workflow can also be started manually from the Actions tab to release the current
+`master` commit, for example after a run was cancelled.
+
+### Choosing the version
+
+To start a new major or minor version, push a `vMAJOR.MINOR.PATCH` tag whose commit is
+reachable from `master`. For example:
 
 ```powershell
-git tag v1.2.3
-git push origin v1.2.3
+git tag v1.4.0
+git push origin v1.4.0
 ```
 
-The workflow builds a versioned, self-contained win-x64 installer and publishes it
-as `TaskSwitcher-Setup-1.2.3.exe` on the corresponding GitHub release. A tag that is
-not on `master`, or does not use the required version format, is rejected.
+The workflow publishes exactly that version, and later pushes to `master` continue
+from it (`v1.4.1`, `v1.4.2`, ...). A tag that is not on `master`, or does not use the
+required version format, is rejected.
 
 ## Customization
 

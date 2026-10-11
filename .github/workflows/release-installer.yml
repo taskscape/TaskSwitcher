@@ -2,54 +2,113 @@ name: Publish installer release
 
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v[0-9]*.[0-9]*.[0-9]*'
+  workflow_dispatch:
+
+# Automatic releases take the next patch number after the newest release tag,
+# so runs are serialized instead of racing for the same version.
+concurrency:
+  group: publish-installer-release
+  cancel-in-progress: false
 
 permissions:
-  contents: write
+  # Release write access is granted only to the publish job below.
+  contents: read
 
 jobs:
-  release:
-    name: Build and publish Inno Setup installer
+  version:
+    name: Resolve release version
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
 
     steps:
-      - name: Check out tagged source
+      - name: Check out source
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Validate version tag and master ancestry
+      - name: Resolve version and validate master ancestry
         id: version
         shell: pwsh
         run: |
-          if ($env:GITHUB_REF_NAME -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
-            throw "Release tags must use the vMAJOR.MINOR.PATCH format (for example, v1.2.3)."
-          }
+          $releaseTagPattern = '^v(?<version>\d+\.\d+\.\d+)$'
 
-          $version = $Matches.version
           git fetch origin master --no-tags
           if ($LASTEXITCODE -ne 0) {
             throw "Could not fetch origin/master."
           }
 
-          $tagCommit = (git rev-parse "$env:GITHUB_REF_NAME^{commit}").Trim()
-          if ($LASTEXITCODE -ne 0) {
-            throw "Could not resolve tag $env:GITHUB_REF_NAME to a commit."
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            if ($env:GITHUB_REF_NAME -notmatch $releaseTagPattern) {
+              throw "Release tags must use the vMAJOR.MINOR.PATCH format (for example, v1.2.3)."
+            }
+
+            $version = $Matches.version
+            $commit = (git rev-parse "$env:GITHUB_REF_NAME^{commit}").Trim()
+            if ($LASTEXITCODE -ne 0) {
+              throw "Could not resolve tag $env:GITHUB_REF_NAME to a commit."
+            }
+          }
+          else {
+            $commit = (git rev-parse HEAD).Trim()
+            if ($LASTEXITCODE -ne 0) {
+              throw "Could not resolve the checked-out commit."
+            }
           }
 
-          git merge-base --is-ancestor $tagCommit origin/master
+          git merge-base --is-ancestor $commit origin/master
           if ($LASTEXITCODE -ne 0) {
-            throw "Tag $env:GITHUB_REF_NAME does not reference a commit reachable from master."
+            throw "Commit $commit is not reachable from master; installer releases are only published from master."
           }
 
+          if ($env:GITHUB_REF_TYPE -ne 'tag') {
+            # A rerun, or a tag pushed together with master, must not release the same commit twice.
+            $existingTags = @(git tag --points-at $commit | Where-Object { $_ -match $releaseTagPattern })
+            if ($existingTags.Count -gt 0) {
+              Write-Host "::notice::Commit $commit is already released as $($existingTags -join ', '); nothing to publish."
+              exit 0
+            }
+
+            $latest = git tag --list 'v*' |
+              Where-Object { $_ -match $releaseTagPattern } |
+              ForEach-Object { [version]$_.Substring(1) } |
+              Sort-Object -Descending |
+              Select-Object -First 1
+            if ($null -eq $latest) {
+              throw "No vMAJOR.MINOR.PATCH tag exists to number this release from; push one (for example, v1.0.0) first."
+            }
+
+            $version = "$($latest.Major).$($latest.Minor).$($latest.Build + 1)"
+          }
+
+          Write-Host "Releasing TaskSwitcher $version from commit $commit."
           "version=$version" >> $env:GITHUB_OUTPUT
-          "commit=$tagCommit" >> $env:GITHUB_OUTPUT
+          "commit=$commit" >> $env:GITHUB_OUTPUT
+
+  build:
+    name: Build Inno Setup installer
+    needs: version
+    # No version means the commit already has a release.
+    if: needs.version.outputs.version != ''
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
 
       - name: Set up .NET 10
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
+
+      - name: Run unit tests
+        shell: pwsh
+        run: dotnet test ./Core.UnitTests/Core.UnitTests.csproj --configuration Release
 
       - name: Build installer
         shell: pwsh
@@ -57,21 +116,49 @@ jobs:
           ./Installer/Build-Installer.ps1
           -Configuration Release
           -Runtime win-x64
-          -Version '${{ steps.version.outputs.version }}'
+          -Version '${{ needs.version.outputs.version }}'
+
+      - name: Upload installer for the publish job
+        uses: actions/upload-artifact@v7
+        with:
+          name: installer-${{ needs.version.outputs.version }}
+          path: Installer/Output/TaskSwitcher-Setup-${{ needs.version.outputs.version }}.exe
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: [version, build]
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download installer
+        uses: actions/download-artifact@v7
+        with:
+          name: installer-${{ needs.version.outputs.version }}
 
       - name: Create GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.version.outputs.version }}
+          COMMIT: ${{ needs.version.outputs.commit }}
         run: |
-          $installer = "Installer/Output/TaskSwitcher-Setup-$env:VERSION.exe"
+          $installer = "TaskSwitcher-Setup-$env:VERSION.exe"
           if (-not (Test-Path $installer)) {
             throw "Expected installer was not found: $installer"
           }
 
-          gh release create $env:GITHUB_REF_NAME $installer `
-            --verify-tag `
-            --target '${{ steps.version.outputs.commit }}' `
+          # A pushed tag must already exist; a master build has its tag created here.
+          # Tags created with GITHUB_TOKEN do not start another run of this workflow.
+          $tagArguments = @('--target', $env:COMMIT)
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $tagArguments += '--verify-tag'
+          }
+
+          gh release create "v$env:VERSION" $installer `
+            @tagArguments `
             --title "TaskSwitcher $env:VERSION" `
             --generate-notes
