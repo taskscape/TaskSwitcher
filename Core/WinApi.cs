@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Windows.Forms;
 
 namespace TaskSwitcher.Core
 {
@@ -175,15 +174,25 @@ namespace TaskSwitcher.Core
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern bool CloseHandle(IntPtr hHandle);
 
+        // The FILETIME values are returned as 64-bit integers (100 ns intervals since 1601 UTC).
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool GetProcessTimes(IntPtr hProcess, out long lpCreationTime, out long lpExitTime,
+            out long lpKernelTime, out long lpUserTime);
+
+        /// <summary>
+        /// Flag for <see cref="ToUnicodeEx"/> that leaves the kernel keyboard state (pending
+        /// dead keys) untouched. Supported from Windows 10 version 1607 and ignored before.
+        /// </summary>
+        public const uint ToUnicodeDoNotChangeKeyboardState = 0x4;
+
+        // lpKeyState must point to a 256-byte array, and pwszBuff is not null-terminated.
         [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
-        public static extern int ToUnicodeEx(uint wVirtKey, uint wScanCode, Keys[] lpKeyState, StringBuilder pwszBuff,
-            int cchBuff, uint wFlags, IntPtr dwhkl);
+        public static extern int ToUnicodeEx(uint wVirtKey, uint wScanCode, byte[] lpKeyState,
+            [Out] char[] pwszBuff, int cchBuff, uint wFlags, IntPtr dwhkl);
 
         [DllImport("user32.dll", ExactSpelling = true)]
         public static extern IntPtr GetKeyboardLayout(uint threadId);
-
-        [DllImport("user32.dll", ExactSpelling = true)]
-        public static extern bool GetKeyboardState(Keys[] keyStates);
 
         [DllImport("user32.dll", ExactSpelling = true)]
         public static extern uint GetWindowThreadProcessId(IntPtr hwindow, out uint processId);
@@ -291,6 +300,7 @@ namespace TaskSwitcher.Core
 
         [DllImport("user32.dll")]
         public static extern int EnumPropsEx(IntPtr hWnd, EnumPropsExDelegate lpEnumFunc, IntPtr lParam);
-        public delegate int EnumPropsExDelegate(IntPtr hwnd, IntPtr lpszString, long hData, long dwData);
+        // hData and dwData are pointer-sized (HANDLE and ULONG_PTR).
+        public delegate int EnumPropsExDelegate(IntPtr hwnd, IntPtr lpszString, IntPtr hData, IntPtr dwData);
     }
 }

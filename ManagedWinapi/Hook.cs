@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -144,7 +145,17 @@ namespace ManagedWinapi.Hooks
         {
             if (hooked)
             {
-                Unhook();
+                try
+                {
+                    Unhook();
+                }
+                catch (Win32Exception)
+                {
+                    // Windows may already have removed the hook itself, which it does to
+                    // low-level hooks that respond too slowly. Disposal runs during shutdown
+                    // and on the finalizer thread, where it must not fail because of that.
+                    hooked = false;
+                }
             }
 
             base.Dispose(disposing);
@@ -160,7 +171,20 @@ namespace ManagedWinapi.Hooks
             if (code < 0 || Callback == null) 
                 return CallNextHookEx(hHook, code, wParam, lParam);
             bool callNext = true;
-            int retval = Callback(code, wParam, lParam, ref callNext);
+            int retval;
+            try
+            {
+                retval = Callback(code, wParam, lParam, ref callNext);
+            }
+            catch (Exception ex)
+            {
+                // This method is called directly by Windows. An exception that escapes into
+                // the native hook dispatcher terminates the process, so the event is passed
+                // on to the next hook as if this one had not been installed.
+                Trace.TraceError("Hook callback failed: {0}", ex);
+                return CallNextHookEx(hHook, code, wParam, lParam);
+            }
+
             return !callNext ? retval : CallNextHookEx(hHook, code, wParam, lParam);
         }
 

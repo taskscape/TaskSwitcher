@@ -1,5 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 
 namespace TaskSwitcher.Core
@@ -24,7 +24,21 @@ namespace TaskSwitcher.Core
         public IEnumerable<AppWindow> GetWindowsLazy()
         {
             return AppWindow.AllToplevelWindows
-                .Where(a => a.IsAltTabWindow());
+                .Where(IsAltTabWindow);
+        }
+
+        private static bool IsAltTabWindow(AppWindow window)
+        {
+            try
+            {
+                return window.IsAltTabWindow();
+            }
+            catch (Win32Exception)
+            {
+                // Windows come and go while they are being enumerated. One that was destroyed
+                // while it was inspected must not abort the listing of all the others.
+                return false;
+            }
         }
         
         /// <summary>

@@ -32,6 +32,7 @@ namespace TaskSwitcher
     {
         private static readonly HttpClient HttpClient = new();
         private static readonly TimeSpan WindowCloseTimeout = TimeSpan.FromSeconds(10);
+        private static readonly TimeSpan FilterDebounce = TimeSpan.FromMilliseconds(100);
 
         private readonly WindowCloser _windowCloser = new();
         private CancellationTokenSource _closeCancellationTokenSource;
@@ -39,9 +40,7 @@ namespace TaskSwitcher
         private ObservableCollection<AppWindowViewModel> _filteredWindowList;
         private NotifyIcon _notifyIcon;
         private HotKey _hotkey;
-        private IntPtr[] _cachedWindowHandles;
-        private DateTime _lastWindowLoad = DateTime.MinValue;
-        private readonly TimeSpan _windowCacheDuration = TimeSpan.FromSeconds(1);
+        private string _foregroundProcessTitle;
 
         public static readonly RoutedUICommand CloseWindowCommand = new();
         public static readonly RoutedUICommand SwitchToWindowCommand = new();
@@ -63,7 +62,7 @@ namespace TaskSwitcher
 
             SetUpHotKey();
 
-            SetUpAltTabHook();
+            UpdateAltTabHook();
 
             CheckForUpdates();
 
@@ -146,10 +145,43 @@ namespace TaskSwitcher
             }
         }
 
-        private void SetUpAltTabHook()
+        /// <summary>
+        /// Installs the Alt+Tab keyboard hook while that option is enabled and removes it otherwise.
+        /// </summary>
+        private void UpdateAltTabHook()
         {
-            _altTabHook = new AltTabHook();
-            _altTabHook.Pressed += AltTabPressed;
+            // Every key press of the whole system passes through the hook for as long as it is
+            // installed, so it only exists while it is actually wanted.
+            bool hookWanted = Settings.Default.AltTabHook;
+            if (hookWanted == (_altTabHook != null))
+            {
+                return;
+            }
+
+            if (!hookWanted)
+            {
+                _altTabHook.Pressed -= AltTabPressed;
+                DisposeSafely(_altTabHook, nameof(_altTabHook));
+                _altTabHook = null;
+                return;
+            }
+
+            try
+            {
+                AltTabHook altTabHook = new();
+                altTabHook.Pressed += AltTabPressed;
+                _altTabHook = altTabHook;
+            }
+            catch (System.ComponentModel.Win32Exception ex)
+            {
+                DiagnosticLogger.LogException("MainWindow.UpdateAltTabHook", ex);
+                MessageBox.Show(
+                    "TaskSwitcher could not take over Alt+Tab, so the task switcher of Windows stays in use." +
+                    Environment.NewLine +
+                    Environment.NewLine +
+                    "The hotkey for activating TaskSwitcher is not affected.",
+                    "Unable to Use Alt+Tab", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private void SetUpNotifyIcon()
@@ -307,233 +339,172 @@ MenuItem menuItem)
         private async void LoadData(InitialFocus focus)
         {
             using var perf = PerfRecorder.Measure("LoadData");
-            // Cancel any previous loading operation
-            if (_loadCancellationTokenSource != null)
-            {
-                _loadCancellationTokenSource.Cancel();
-                _loadCancellationTokenSource.Dispose();
-            }
-            
-            // Create a new cancellation token for this operation
-            _loadCancellationTokenSource = new System.Threading.CancellationTokenSource();
-            var cancellationToken = _loadCancellationTokenSource.Token;
-            
+
+            // Cancel any previous loading operation and create a new token for this one
+            CancellationToken cancellationToken = RenewCancellation(ref _loadCancellationTokenSource);
+
+            // A filter that has not been applied yet belongs to the previous list of windows.
+            CancelPendingFilter();
+
+            // The search box is reset here, before the first await and so before this method
+            // returns to its caller: the caller may put a hint into the box right afterwards,
+            // and whatever the user types while the windows are being loaded has to be kept.
+            ClearSearchText();
+
+            IntPtr foregroundWindowHandle = _foregroundWindow?.HWnd ?? IntPtr.Zero;
+
             try
             {
-                // Initial UI feedback - could show a loading indicator here
-                
-                // Use the lazy loading approach to avoid loading all windows upfront
-                WindowFinder windowFinder = new();
+                // Everything that queries other applications runs on a background thread, so
+                // that a busy application cannot stall the UI thread.
+                LoadedWindows loadedWindows = await Task.Run(
+                    () => LoadWindows(foregroundWindowHandle, cancellationToken), cancellationToken);
 
-                // Perform window loading on a background thread with a short-lived cache to avoid redundant enumerations
-                _unfilteredWindowList = await Task.Run(() =>
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    IntPtr[] windowHandles;
-                    if (_cachedWindowHandles != null && (DateTime.UtcNow - _lastWindowLoad) < _windowCacheDuration)
-                    {
-                        windowHandles = _cachedWindowHandles;
-                    }
-                    else
-                    {
-                        using var perfWindows = PerfRecorder.Measure("EnumerateWindows");
-                        windowHandles = windowFinder.GetWindowsLazy()
-                            .Select(window => window.HWnd)
-                            .ToArray();
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        _cachedWindowHandles = windowHandles;
-                        _lastWindowLoad = DateTime.UtcNow;
-                    }
-
-                    return windowHandles
-                        .Select(handle => new AppWindowViewModel(new AppWindow(handle)))
-                        .ToList();
-                }, cancellationToken);
-                
-                // Check for cancellation before proceeding
-                cancellationToken.ThrowIfCancellationRequested();
-                
-                AppWindowViewModel firstWindow = _unfilteredWindowList.FirstOrDefault();
-                bool foregroundWindowMovedToBottom = false;
-                
-                // Move first window to the bottom of the list if it's related to the foreground window
-                if (firstWindow != null && AreWindowsRelated(firstWindow.AppWindow, _foregroundWindow))
-                {
-                    _unfilteredWindowList.RemoveAt(0);
-                    _unfilteredWindowList.Add(firstWindow);
-                    foregroundWindowMovedToBottom = true;
-                }
-                
                 // Check for cancellation before updating the UI
                 cancellationToken.ThrowIfCancellationRequested();
-                
+
+                _unfilteredWindowList = loadedWindows.Windows;
+                _foregroundProcessTitle = loadedWindows.ForegroundProcessTitle;
                 _filteredWindowList = [.. _unfilteredWindowList];
-                
-                // Update UI before starting background formatting
-                lb.DataContext = null;
                 lb.DataContext = _filteredWindowList;
-                
-                FocusItemInList(focus, foregroundWindowMovedToBottom);
-                tb.Clear();
+
+                FocusItemInList(focus, loadedWindows.ForegroundWindowMovedToBottom);
                 tb.Focus();
                 CenterWindow();
                 ScrollSelectedItemIntoView();
-                
-                // Process window title formatting in the background for better UI responsiveness
-                // Use the same cancellation token to ensure formatting is canceled if a new load starts
-                await Task.Run(() => FormatWindowTitles(_unfilteredWindowList, cancellationToken), cancellationToken);
-            }
-            catch (TaskCanceledException)
-            {
-                // Expected when operation is canceled
+
+                LoadMissingIcons(loadedWindows.Windows, cancellationToken);
+
+                if (tb.IsEnabled && tb.Text.Length > 0)
+                {
+                    // The user started typing before the windows were loaded.
+                    ApplyFilterNow();
+                }
             }
             catch (OperationCanceledException)
             {
-                // Expected when operation is canceled
+                // Expected when a newer load supersedes this one
             }
             catch (Exception ex)
             {
-                // Log unexpected errors
-                Debug.WriteLine($"Error during window loading: {ex.Message}");
+                // This method is async void, so contain unexpected failures.
+                DiagnosticLogger.LogException("MainWindow.LoadData", ex);
             }
         }
         
         /// <summary>
-        /// Formats window titles in the background to improve UI responsiveness
+        /// Collects the windows to show, together with everything that is needed to display
+        /// them. Runs on a background thread.
         /// </summary>
-        private void FormatWindowTitles(List<AppWindowViewModel> windows, System.Threading.CancellationToken cancellationToken)
+        private static LoadedWindows LoadWindows(IntPtr foregroundWindowHandle, CancellationToken cancellationToken)
         {
-            using var perf = PerfRecorder.Measure("FormatWindowTitles.Async");
-            const int batchSize = 10;
-            int processedCount = 0;
-            XamlHighlighter highlighter = new();
-            
-            while (processedCount < windows.Count)
+            List<AppWindow> appWindows;
+            using (PerfRecorder.Measure("EnumerateWindows"))
             {
-                // Check for cancellation before processing each batch
-                if (cancellationToken.IsCancellationRequested)
-                    return;
-                
-                int end = Math.Min(processedCount + batchSize, windows.Count);
-                var batch = new List<AppWindowViewModel>();
-                
-                // Collect the current batch
-                for (int i = processedCount; i < end; i++)
-                {
-                    batch.Add(windows[i]);
-                }
-
-                // Precompute formatting off the UI thread
-                var formattedBatch = new List<(AppWindowViewModel vm, string title, string formattedTitle, string processTitle, string formattedProcessTitle)>(batch.Count);
-                foreach (AppWindowViewModel window in batch)
-                {
-                    string title = window.AppWindow.Title ?? string.Empty;
-                    string formattedTitle = null;
-                    if (!string.Equals(window.LastFormattedTitleSource, title, StringComparison.Ordinal))
-                    {
-                        formattedTitle = highlighter.Highlight(new[] { new StringPart(title) });
-                    }
-
-                    string processTitle = window.AppWindow.ProcessTitle ?? string.Empty;
-                    string formattedProcessTitle = null;
-                    if (!string.Equals(window.LastFormattedProcessTitleSource, processTitle, StringComparison.Ordinal))
-                    {
-                        formattedProcessTitle = highlighter.Highlight(new[] { new StringPart(processTitle) });
-                    }
-
-                    formattedBatch.Add((window, title, formattedTitle, processTitle, formattedProcessTitle));
-                }
-                
-                // Update the UI on the dispatcher thread
-                Dispatcher.Invoke(() => 
-                {
-                    foreach (var item in formattedBatch)
-                    {
-                        if (item.formattedTitle != null)
-                        {
-                            item.vm.FormattedTitle = item.formattedTitle;
-                            item.vm.LastFormattedTitleSource = item.title;
-                        }
-
-                        if (item.formattedProcessTitle != null)
-                        {
-                            item.vm.FormattedProcessTitle = item.formattedProcessTitle;
-                            item.vm.LastFormattedProcessTitleSource = item.processTitle;
-                        }
-                    }
-                });
-                
-                processedCount = end;
-                
-                // Small delay to keep the UI responsive
-                System.Threading.Thread.Sleep(10);
+                appWindows = new WindowFinder().GetWindows();
             }
+
+            XamlHighlighter highlighter = new();
+            List<AppWindowViewModel> windows = new(appWindows.Count);
+            foreach (AppWindow appWindow in appWindows)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // The titles are formatted here, so that the list is complete when it appears.
+                AppWindowViewModel window = new(appWindow);
+                window.FormattedTitle = highlighter.Highlight(new[] { new StringPart(window.WindowTitle) });
+                window.FormattedProcessTitle = highlighter.Highlight(new[] { new StringPart(window.ProcessTitle) });
+
+                // Icons that were loaded before are shown at once. See LoadMissingIcons for the others.
+                window.IconImage = WindowIconImageLoader.GetCached(appWindow);
+
+                windows.Add(window);
+            }
+
+            bool foregroundWindowMovedToBottom = false;
+            string foregroundProcessTitle = null;
+            if (foregroundWindowHandle != IntPtr.Zero)
+            {
+                AppWindow foregroundWindow = new(foregroundWindowHandle);
+                foregroundProcessTitle = foregroundWindow.ProcessTitle;
+
+                // Move first window to the bottom of the list if it's related to the foreground window
+                if (windows.Count > 0 && AreWindowsRelated(windows[0].AppWindow, foregroundWindow))
+                {
+                    AppWindowViewModel firstWindow = windows[0];
+                    windows.RemoveAt(0);
+                    windows.Add(firstWindow);
+                    foregroundWindowMovedToBottom = true;
+                }
+            }
+
+            return new LoadedWindows(windows, foregroundProcessTitle, foregroundWindowMovedToBottom);
         }
 
         /// <summary>
-        /// Formats window titles in the background to improve UI responsiveness
+        /// Loads the icons that were not available from the cache when the list was created.
         /// </summary>
-        private void FormatWindowTitles(List<AppWindowViewModel> windows)
+        private static void LoadMissingIcons(List<AppWindowViewModel> windows, CancellationToken cancellationToken)
         {
-            using var perf = PerfRecorder.Measure("FormatWindowTitles.Dispatcher");
-            const int batchSize = 10;
-            int processedCount = 0;
-            XamlHighlighter highlighter = new();
-            
-            Action processNextBatch = null;
-            processNextBatch = () =>
+            AppWindowViewModel[] windowsWithoutIcon = windows.Where(window => window.IconImage == null).ToArray();
+            if (windowsWithoutIcon.Length == 0)
             {
-                int end = Math.Min(processedCount + batchSize, windows.Count);
-                
-                var formattedBatch = new List<(AppWindowViewModel vm, string title, string formattedTitle, string processTitle, string formattedProcessTitle)>(end - processedCount);
+                return;
+            }
 
-                for (int i = processedCount; i < end; i++)
+            // Retrieving an icon waits for a reply from the application that owns the window,
+            // which takes a while when that application is busy. On the UI thread this would
+            // freeze the switcher, and with it the keyboard hook that runs on the same thread.
+            Task.Run(() =>
+            {
+                using var perf = PerfRecorder.Measure("LoadMissingIcons");
+                foreach (AppWindowViewModel window in windowsWithoutIcon)
                 {
-                    AppWindowViewModel window = windows[i];
-                    string title = window.AppWindow.Title ?? string.Empty;
-                    string formattedTitle = null;
-                    if (!string.Equals(window.LastFormattedTitleSource, title, StringComparison.Ordinal))
+                    if (cancellationToken.IsCancellationRequested)
                     {
-                        formattedTitle = highlighter.Highlight(new[] { new StringPart(title) });
+                        return;
                     }
 
-                    string processTitle = window.AppWindow.ProcessTitle ?? string.Empty;
-                    string formattedProcessTitle = null;
-                    if (!string.Equals(window.LastFormattedProcessTitleSource, processTitle, StringComparison.Ordinal))
+                    try
                     {
-                        formattedProcessTitle = highlighter.Highlight(new[] { new StringPart(processTitle) });
+                        // Null once the window has been closed from within the switcher
+                        AppWindow appWindow = window.AppWindow;
+                        if (appWindow != null)
+                        {
+                            // WPF delivers the change notification of the property to the UI thread.
+                            window.IconImage = WindowIconImageLoader.Load(appWindow);
+                        }
                     }
-
-                    formattedBatch.Add((window, title, formattedTitle, processTitle, formattedProcessTitle));
-                }
-
-                foreach (var item in formattedBatch)
-                {
-                    if (item.formattedTitle != null)
+                    catch (Exception ex)
                     {
-                        item.vm.FormattedTitle = item.formattedTitle;
-                        item.vm.LastFormattedTitleSource = item.title;
-                    }
-
-                    if (item.formattedProcessTitle != null)
-                    {
-                        item.vm.FormattedProcessTitle = item.formattedProcessTitle;
-                        item.vm.LastFormattedProcessTitleSource = item.processTitle;
+                        // A window without an icon must not affect the remaining ones.
+                        DiagnosticLogger.LogException("MainWindow.LoadMissingIcons", ex);
                     }
                 }
-                
-                processedCount = end;
-                
-                if (processedCount < windows.Count)
-                {
-                    Dispatcher.BeginInvoke(processNextBatch, DispatcherPriority.Background);
-                }
-            };
-            
-            processNextBatch();
+            });
         }
+
+        /// <summary>
+        /// Cancels the operation of the given token source, if any, and starts a new one.
+        /// </summary>
+        private static CancellationToken RenewCancellation(ref CancellationTokenSource cancellationTokenSource)
+        {
+            CancellationTokenSource previous = cancellationTokenSource;
+            cancellationTokenSource = new CancellationTokenSource();
+
+            if (previous != null)
+            {
+                previous.Cancel();
+                previous.Dispose();
+            }
+
+            return cancellationTokenSource.Token;
+        }
+
+        private sealed record LoadedWindows(
+            List<AppWindowViewModel> Windows,
+            string ForegroundProcessTitle,
+            bool ForegroundWindowMovedToBottom);
 
         private static bool AreWindowsRelated(SystemWindow window1, SystemWindow window2)
         {
@@ -580,10 +551,13 @@ MenuItem menuItem)
         /// </summary>
         private void Switch()
         {
+            // Enter may have been pressed before the list caught up with the search text.
+            FlushPendingFilter();
+
             if (lb.Items.Count > 0)
             {
                 AppWindowViewModel win = (AppWindowViewModel) (lb.SelectedItem ?? lb.Items[0]);
-                win.AppWindow.SwitchToLastVisibleActivePopup();
+                win.AppWindow?.SwitchToLastVisibleActivePopup();
             }
 
             HideWindow();
@@ -596,6 +570,18 @@ MenuItem menuItem)
             _altTabAutoSwitch = false;
             Opacity = 0;
             Dispatcher.BeginInvoke(new Action(Hide), DispatcherPriority.Input);
+        }
+
+        /// <summary>
+        /// Returns the overlay to its hidden state after an operation failed halfway, so that
+        /// it cannot stay behind invisible but still holding the keyboard focus.
+        /// </summary>
+        internal void HideAfterError()
+        {
+            if (!_disposed)
+            {
+                HideWindow();
+            }
         }
 
         #endregion
@@ -616,7 +602,13 @@ MenuItem menuItem)
                 {
                     WindowStartupLocation = WindowStartupLocation.CenterScreen
                 };
-                _optionsWindow.Closed += (sender, args) => _optionsWindow = null;
+                _optionsWindow.Closed += (sender, args) =>
+                {
+                    _optionsWindow = null;
+
+                    // The Alt+Tab option may have been changed.
+                    UpdateAltTabHook();
+                };
                 _optionsWindow.ShowDialog();
             }
             else
@@ -650,8 +642,16 @@ MenuItem menuItem)
         /// </summary>
         private void Quit()
         {
-            Dispose();
-            Application.Current.Shutdown();
+            try
+            {
+                Dispose();
+            }
+            finally
+            {
+                // Without this the process would stay alive without a tray icon to end it,
+                // and it would keep new instances from starting.
+                Application.Current.Shutdown();
+            }
         }
         
         #region IDisposable Implementation
@@ -668,13 +668,25 @@ MenuItem menuItem)
         {
             if (_disposed)
                 return;
-            
+
+            // Set first, so that a failure below cannot lead to a second attempt.
+            _disposed = true;
+
             if (disposing)
             {
-                // Dispose managed resources
-                _notifyIcon?.Dispose();
-                _hotkey?.Dispose();
-                _altTabHook?.Dispose();
+                // Unregister event handlers
+                if (_hotkey != null)
+                    _hotkey.HotkeyPressed -= hotkey_HotkeyPressed;
+
+                if (_altTabHook != null)
+                    _altTabHook.Pressed -= AltTabPressed;
+
+                // Dispose managed resources. Each one is released on its own: when one of them
+                // fails, the others still have to be released and the application still has
+                // to be able to exit.
+                DisposeSafely(_notifyIcon, nameof(_notifyIcon));
+                DisposeSafely(_hotkey, nameof(_hotkey));
+                DisposeSafely(_altTabHook, nameof(_altTabHook));
                 CancelCurrentCloseOperation();
                 
                 // Clean up the cancellation token sources
@@ -700,14 +712,7 @@ MenuItem menuItem)
                         window.Dispose();
                     }
                 }
-                
-                // Unregister event handlers
-                if (_hotkey != null)
-                    _hotkey.HotkeyPressed -= hotkey_HotkeyPressed;
-                
-                if (_altTabHook != null)
-                    _altTabHook.Pressed -= AltTabPressed;
-                
+
                 // Clean up references
                 _notifyIcon = null;
                 _hotkey = null;
@@ -715,10 +720,19 @@ MenuItem menuItem)
                 _unfilteredWindowList = null;
                 _filteredWindowList = null;
                 _foregroundWindow = null;
-                _cachedWindowHandles = null;
             }
-            
-            _disposed = true;
+        }
+
+        private static void DisposeSafely(IDisposable disposable, string name)
+        {
+            try
+            {
+                disposable?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.LogException("MainWindow.Dispose." + name, ex);
+            }
         }
         
         #endregion
@@ -776,6 +790,21 @@ MenuItem menuItem)
 
             e.Handled = true;
 
+            // This is called from within the low-level keyboard hook, which has to return at
+            // once (see AltTabHook.Pressed). Only the decision to take the key press is made
+            // here. The dispatcher shows the window as soon as the hook has returned.
+            bool shiftDown = e.ShiftDown;
+            bool ctrlDown = e.CtrlDown;
+            Dispatcher.BeginInvoke(new Action(() => ShowOrCycleWindowList(shiftDown, ctrlDown)));
+        }
+
+        private void ShowOrCycleWindowList(bool shiftDown, bool ctrlDown)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
             if (Visibility != Visibility.Visible)
             {
                 tb.IsEnabled = true;
@@ -785,7 +814,7 @@ MenuItem menuItem)
                 ActivateAndFocusMainWindow();
 
                 Keyboard.Focus(tb);
-                if (e.ShiftDown)
+                if (shiftDown)
                 {
                     LoadData(InitialFocus.PreviousItem);
                 }
@@ -794,7 +823,7 @@ MenuItem menuItem)
                     LoadData(InitialFocus.NextItem);
                 }
 
-                if (Settings.Default.AutoSwitch && !e.CtrlDown)
+                if (Settings.Default.AutoSwitch && !ctrlDown)
                 {
                     _altTabAutoSwitch = true;
                     tb.IsEnabled = false;
@@ -805,7 +834,7 @@ MenuItem menuItem)
             }
             else
             {
-                if (e.ShiftDown)
+                if (shiftDown)
                 {
                     PreviousItem();
                 }
@@ -851,105 +880,179 @@ MenuItem menuItem)
 
         // A cancellation token source to cancel previous filtering operations when new input arrives
         private System.Threading.CancellationTokenSource _filterCancellationTokenSource;
-        
+
+        // True from the moment the search text changes until the list shows the matching windows
+        private bool _filterPending;
+
+        // True while the search box is being changed by the application instead of the user
+        private bool _ignoreTextChanges;
+
         private async void TextChanged(object sender, TextChangedEventArgs args)
         {
-            using var perf = PerfRecorder.Measure("FilterWindows");
-            if (!tb.IsEnabled)
+            if (!tb.IsEnabled || _ignoreTextChanges)
             {
                 return;
             }
 
-            // Cancel any previous filtering operation
-            if (_filterCancellationTokenSource != null)
-            {
-                _filterCancellationTokenSource.Cancel();
-                _filterCancellationTokenSource.Dispose();
-            }
-            
-            // Create a new cancellation token for this operation
-            _filterCancellationTokenSource = new System.Threading.CancellationTokenSource();
-            var cancellationToken = _filterCancellationTokenSource.Token;
+            // Cancel any previous filtering operation and create a new token for this one
+            CancellationToken cancellationToken = RenewCancellation(ref _filterCancellationTokenSource);
+            _filterPending = true;
 
             try
             {
-                await Task.Delay(100, cancellationToken); // debounce rapid typing
+                await Task.Delay(FilterDebounce, cancellationToken); // debounce rapid typing
 
-                string query = tb.Text;
-                
-                // Show some immediate feedback to the user
-                if (!string.IsNullOrEmpty(query))
-                {
-                    // Display a "Filtering..." status or progress indicator here if desired
-                }
-
-                // Create the filter context
-                var context = new WindowFilterContext<AppWindowViewModel>
-                {
-                    Windows = _unfilteredWindowList,
-                    ForegroundWindowProcessTitle = new AppWindow(_foregroundWindow.HWnd).ProcessTitle
-                };
+                FilterInput filterInput = CreateFilterInput();
 
                 // Perform filtering on a background thread
-                WindowFilterer windowFilterer = new();
-                List<FilterResult<AppWindowViewModel>> filterResults = await Task.Run(() => 
-                {
-                    // Check for cancellation before starting work
-                    cancellationToken.ThrowIfCancellationRequested();
-                    
-                    return windowFilterer.Filter(context, query).ToList();
-                }, cancellationToken);
-                
-                // Check for cancellation before formatting titles
-                cancellationToken.ThrowIfCancellationRequested();
-                
-                // Process the formatted titles in batches to avoid UI freezing
-                await Task.Run(() => 
-                {
-                    foreach (FilterResult<AppWindowViewModel> filterResult in filterResults)
-                    {
-                        // Check for cancellation during title formatting
-                        cancellationToken.ThrowIfCancellationRequested();
-                        
-                        filterResult.AppWindow.FormattedTitle =
-                            GetFormattedTitleFromBestResult(filterResult.WindowTitleMatchResults);
-                        filterResult.AppWindow.FormattedProcessTitle =
-                            GetFormattedTitleFromBestResult(filterResult.ProcessTitleMatchResults);
-                    }
-                }, cancellationToken);
+                List<FilteredWindow> filteredWindows = await Task.Run(
+                    () => FilterWindows(filterInput, cancellationToken), cancellationToken);
 
                 // Check for cancellation before updating UI
                 cancellationToken.ThrowIfCancellationRequested();
-                
-                // Update the UI on the main thread
-                _filteredWindowList = new ObservableCollection<AppWindowViewModel>(filterResults.Select(r => r.AppWindow));
-                lb.DataContext = _filteredWindowList;
-                
-                if (lb.Items.Count > 0)
-                {
-                    lb.SelectedItem = lb.Items[0];
-                }
-            }
-            catch (TaskCanceledException)
-            {
-                // The operation was canceled because a new filter request came in - this is expected
+
+                ShowFilteredWindows(filteredWindows);
             }
             catch (OperationCanceledException)
             {
-                // The operation was canceled because a new filter request came in - this is expected
+                // The operation was canceled because a new filter request came in, or because
+                // the result was needed at once (see FlushPendingFilter) - this is expected
             }
             catch (Exception ex)
             {
-                // Log unexpected errors
-                Debug.WriteLine($"Error during filtering: {ex.Message}");
+                // This event handler is async void, so contain unexpected failures.
+                DiagnosticLogger.LogException("MainWindow.TextChanged", ex);
             }
         }
 
-        private static string GetFormattedTitleFromBestResult(IList<MatchResult> matchResults)
+        /// <summary>
+        /// Captures what a filter run needs, so that the run itself does not touch any state
+        /// of the window and can execute on a background thread.
+        /// </summary>
+        private FilterInput CreateFilterInput()
+        {
+            // A copy, because closing a window removes it from the list on the UI thread.
+            AppWindowViewModel[] windows = _unfilteredWindowList?.ToArray() ?? [];
+            return new FilterInput(windows, _foregroundProcessTitle, tb.Text);
+        }
+
+        private static List<FilteredWindow> FilterWindows(FilterInput filterInput, CancellationToken cancellationToken)
+        {
+            using var perf = PerfRecorder.Measure("FilterWindows");
+
+            // Check for cancellation before starting work
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var context = new WindowFilterContext<AppWindowViewModel>
+            {
+                Windows = filterInput.Windows,
+                ForegroundWindowProcessTitle = filterInput.ForegroundProcessTitle
+            };
+
+            XamlHighlighter highlighter = new();
+            List<FilteredWindow> filteredWindows = [];
+            foreach (FilterResult<AppWindowViewModel> filterResult in new WindowFilterer().Filter(context, filterInput.Query))
+            {
+                // Check for cancellation during title formatting
+                cancellationToken.ThrowIfCancellationRequested();
+
+                filteredWindows.Add(new FilteredWindow(
+                    filterResult.AppWindow,
+                    GetFormattedTitleFromBestResult(highlighter, filterResult.WindowTitleMatchResults),
+                    GetFormattedTitleFromBestResult(highlighter, filterResult.ProcessTitleMatchResults)));
+            }
+
+            return filteredWindows;
+        }
+
+        /// <summary>
+        /// Shows the result of a filter run. Must be called on the UI thread.
+        /// </summary>
+        private void ShowFilteredWindows(List<FilteredWindow> filteredWindows)
+        {
+            _filterPending = false;
+
+            // The list is replaced before the titles are updated: the rows of the previous
+            // list are released first and therefore do not render the new titles as well.
+            _filteredWindowList = new ObservableCollection<AppWindowViewModel>(
+                filteredWindows.Select(filteredWindow => filteredWindow.Window));
+            lb.DataContext = _filteredWindowList;
+
+            foreach (FilteredWindow filteredWindow in filteredWindows)
+            {
+                filteredWindow.Window.FormattedTitle = filteredWindow.FormattedTitle;
+                filteredWindow.Window.FormattedProcessTitle = filteredWindow.FormattedProcessTitle;
+            }
+
+            if (lb.Items.Count > 0)
+            {
+                lb.SelectedItem = lb.Items[0];
+            }
+        }
+
+        /// <summary>
+        /// Filters the list by the current search text right away, without waiting for the
+        /// debounce interval or for a background thread.
+        /// </summary>
+        private void ApplyFilterNow()
+        {
+            CancelPendingFilter();
+
+            try
+            {
+                ShowFilteredWindows(FilterWindows(CreateFilterInput(), CancellationToken.None));
+            }
+            catch (Exception ex)
+            {
+                // Callers go on to act on the list, which then simply stays as it was.
+                DiagnosticLogger.LogException("MainWindow.ApplyFilterNow", ex);
+            }
+        }
+
+        /// <summary>
+        /// Makes sure the list matches the search text before a command acts on it. Without
+        /// this, a command issued right after typing (typically Enter) would apply to whatever
+        /// the list showed before, because filtering is debounced and asynchronous.
+        /// </summary>
+        private void FlushPendingFilter()
+        {
+            if (_filterPending)
+            {
+                ApplyFilterNow();
+            }
+        }
+
+        private void CancelPendingFilter()
+        {
+            _filterCancellationTokenSource?.Cancel();
+            _filterPending = false;
+        }
+
+        /// <summary>
+        /// Empties the search box without triggering a filter run.
+        /// </summary>
+        private void ClearSearchText()
+        {
+            _ignoreTextChanges = true;
+            try
+            {
+                tb.Clear();
+            }
+            finally
+            {
+                _ignoreTextChanges = false;
+            }
+        }
+
+        private static string GetFormattedTitleFromBestResult(XamlHighlighter highlighter, IList<MatchResult> matchResults)
         {
             MatchResult bestResult = matchResults.FirstOrDefault(r => r.Matched) ?? matchResults.First();
-            return new XamlHighlighter().Highlight(bestResult.StringParts);
+            return highlighter.Highlight(bestResult.StringParts);
         }
+
+        private sealed record FilterInput(AppWindowViewModel[] Windows, string ForegroundProcessTitle, string Query);
+
+        private sealed record FilteredWindow(AppWindowViewModel Window, string FormattedTitle, string FormattedProcessTitle);
 
         private void OnEnterPressed(object sender, ExecutedRoutedEventArgs e)
         {
@@ -965,6 +1068,8 @@ MenuItem menuItem)
 
         private async void CloseWindow(object sender, ExecutedRoutedEventArgs e)
         {
+            FlushPendingFilter();
+
             if (lb.Items.Count > 0)
             {
                 AppWindowViewModel win = (AppWindowViewModel) lb.SelectedItem;
@@ -1023,6 +1128,10 @@ MenuItem menuItem)
 
         private void RemoveWindow(AppWindowViewModel window)
         {
+            // The close operation that leads here may complete after the application was disposed.
+            if (_filteredWindowList == null)
+                return;
+
             int index = _filteredWindowList.IndexOf(window);
             if (index < 0)
                 return;
@@ -1039,18 +1148,15 @@ MenuItem menuItem)
             }
 
             _filteredWindowList.Remove(window);
-            _unfilteredWindowList.Remove(window);
+            _unfilteredWindowList?.Remove(window);
 
-            // Do not allow a recently closed handle to be returned by the short-lived cache.
-            _cachedWindowHandles = null;
-            _lastWindowLoad = DateTime.MinValue;
-            
             // Properly dispose the removed window
             window.Dispose();
         }
 
         private void ScrollListUp(object sender, ExecutedRoutedEventArgs e)
         {
+            FlushPendingFilter();
             PreviousItem();
             e.Handled = true;
         }
@@ -1074,6 +1180,7 @@ MenuItem menuItem)
 
         private void ScrollListDown(object sender, ExecutedRoutedEventArgs e)
         {
+            FlushPendingFilter();
             NextItem();
             e.Handled = true;
         }

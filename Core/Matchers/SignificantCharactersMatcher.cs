@@ -9,7 +9,7 @@ namespace TaskSwitcher.Core.Matchers
         internal const int PatternCacheCapacity = 128;
 
         private static readonly object PatternCacheLock = new();
-        private static readonly Dictionary<string, CachedRegex> CompiledPatterns = new(StringComparer.Ordinal);
+        private static readonly Dictionary<string, CachedRegex> CachedPatterns = new(StringComparer.Ordinal);
         private static readonly LinkedList<string> PatternUsage = new();
 
         public MatchResult Evaluate(string input, string pattern)
@@ -19,10 +19,9 @@ namespace TaskSwitcher.Core.Matchers
                 return NonMatchResult(input);
             }
 
-            // Get or create the compiled regex pattern
-            Regex compiledRegex = GetCompiledRegex(pattern);
+            Regex regex = GetCachedRegex(pattern);
 
-            Match match = compiledRegex.Match(input);
+            Match match = regex.Match(input);
 
             if (!match.Success)
             {
@@ -52,31 +51,34 @@ namespace TaskSwitcher.Core.Matchers
             return matchResult;
         }
 
-        private static Regex GetCompiledRegex(string pattern)
+        private static Regex GetCachedRegex(string pattern)
         {
             lock (PatternCacheLock)
             {
-                if (CompiledPatterns.TryGetValue(pattern, out CachedRegex cached))
+                if (CachedPatterns.TryGetValue(pattern, out CachedRegex cached))
                 {
                     PatternUsage.Remove(cached.UsageNode);
                     PatternUsage.AddFirst(cached.UsageNode);
                     return cached.Regex;
                 }
 
+                // Deliberately not RegexOptions.Compiled: every keystroke produces a new pattern
+                // that is matched against a few dozen titles, and compiling one costs far more
+                // (roughly 15 ms) than interpreting it for all of them (roughly 2 ms).
                 string regexPattern = BuildRegexPattern(pattern);
-                Regex compiledRegex = new(regexPattern, RegexOptions.Compiled);
+                Regex regex = new(regexPattern);
 
-                if (CompiledPatterns.Count == PatternCacheCapacity)
+                if (CachedPatterns.Count == PatternCacheCapacity)
                 {
                     LinkedListNode<string> leastRecentlyUsed = PatternUsage.Last;
                     PatternUsage.RemoveLast();
-                    CompiledPatterns.Remove(leastRecentlyUsed.Value);
+                    CachedPatterns.Remove(leastRecentlyUsed.Value);
                 }
 
                 LinkedListNode<string> usageNode = PatternUsage.AddFirst(pattern);
-                CompiledPatterns.Add(pattern, new CachedRegex(compiledRegex, usageNode));
+                CachedPatterns.Add(pattern, new CachedRegex(regex, usageNode));
 
-                return compiledRegex;
+                return regex;
             }
         }
 
@@ -86,7 +88,7 @@ namespace TaskSwitcher.Core.Matchers
             {
                 lock (PatternCacheLock)
                 {
-                    return CompiledPatterns.Count;
+                    return CachedPatterns.Count;
                 }
             }
         }
@@ -95,7 +97,7 @@ namespace TaskSwitcher.Core.Matchers
         {
             lock (PatternCacheLock)
             {
-                CompiledPatterns.Clear();
+                CachedPatterns.Clear();
                 PatternUsage.Clear();
             }
         }

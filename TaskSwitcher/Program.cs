@@ -20,9 +20,12 @@ using System;
 using System.ComponentModel;
 using System.Configuration;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Security.Principal;
 using System.Threading;
+using System.Threading.Tasks;
 using TaskSwitcher.Properties;
 
 namespace TaskSwitcher
@@ -31,14 +34,22 @@ namespace TaskSwitcher
     {
         private const string mutex_id = "DBDE24E4-91F6-11DF-B495-C536DFD72085-TaskSwitcher";
         private const int ErrorCancelled = 1223;
+        private const string SettingsResetArgument = "--settings-reset";
 
         [STAThread]
-        private static void Main()
+        private static void Main(string[] args)
         {
             try
             {
+                RegisterUnhandledExceptionHandlers();
+
                 using (PerfRecorder.Measure("AppStartup"))
                 {
+                    if (!EnsureSettingsCanBeRead(args))
+                    {
+                        return;
+                    }
+
                     if (!RunAsAdministratorIfConfigured())
                     {
                         return;
@@ -55,7 +66,9 @@ namespace TaskSwitcher
                         }
                         catch (AbandonedMutexException)
                         {
-                            // Log the fact the mutex was abandoned in another process, it will still get aquired
+                            // The previous instance ended without releasing the mutex. This
+                            // instance owns it now and has to release it like any other.
+                            hasHandle = true;
                         }
 
 #if PORTABLE
@@ -80,6 +93,138 @@ namespace TaskSwitcher
             finally
             {
                 DiagnosticLogger.ShutdownAsync().AsTask().GetAwaiter().GetResult();
+            }
+        }
+
+        /// <summary>
+        /// Makes failures outside the WPF dispatcher (see <see cref="App"/>) visible in the
+        /// diagnostic log instead of letting them pass unnoticed or end in a framework dialog.
+        /// </summary>
+        private static void RegisterUnhandledExceptionHandlers()
+        {
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+            {
+                DiagnosticLogger.LogException("Program.UnhandledException", e.ExceptionObject as Exception);
+                if (e.IsTerminating)
+                {
+                    // Nothing runs after this handler, so write the pending entries now.
+                    DiagnosticLogger.ShutdownAsync().AsTask().GetAwaiter().GetResult();
+                }
+            };
+
+            TaskScheduler.UnobservedTaskException += (sender, e) =>
+            {
+                DiagnosticLogger.LogException("Program.UnobservedTaskException", e.Exception);
+                e.SetObserved();
+            };
+
+            // The global hotkey and the tray menu are dispatched by Windows Forms, which shows
+            // its own error dialog for exceptions thrown by their handlers unless this is set.
+            System.Windows.Forms.Application.ThreadException += (sender, e) =>
+            {
+                if (System.Windows.Application.Current is App app)
+                {
+                    app.HandleUnhandledException("Program.ThreadException", e.Exception);
+                }
+                else
+                {
+                    DiagnosticLogger.LogException("Program.ThreadException", e.Exception);
+                }
+            };
+        }
+
+        /// <summary>
+        /// Recovers from a corrupt user settings file, which otherwise makes every settings
+        /// access throw and so prevents TaskSwitcher from starting until the file is deleted
+        /// by hand.
+        /// </summary>
+        /// <returns>False when this process must exit.</returns>
+        private static bool EnsureSettingsCanBeRead(string[] args)
+        {
+            try
+            {
+                // The first access loads the settings file.
+                _ = Settings.Default.FirstRun;
+                return true;
+            }
+            catch (ConfigurationException ex)
+            {
+                DiagnosticLogger.LogException("Program.EnsureSettingsCanBeRead", ex);
+
+                // The configuration system keeps reporting the failure for the lifetime of the
+                // process, so the defaults can only be loaded by a new one. The argument stops
+                // the new process from trying again when setting the file aside did not help.
+                bool alreadyReset = args.Contains(SettingsResetArgument, StringComparer.OrdinalIgnoreCase);
+                if (!alreadyReset && TrySetAsideUserSettingsFile(ex) && TryRestart(SettingsResetArgument))
+                {
+                    return false;
+                }
+
+                System.Windows.MessageBox.Show(
+                    "TaskSwitcher could not read its settings and was unable to reset them." +
+                    Environment.NewLine + Environment.NewLine + ex.Message,
+                    "Unable to Load Settings",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+                return false;
+            }
+        }
+
+        private static bool TrySetAsideUserSettingsFile(Exception exception)
+        {
+            string settingsFile = null;
+            for (Exception current = exception; current != null; current = current.InnerException)
+            {
+                if (current is ConfigurationErrorsException { Filename.Length: > 0 } configurationError)
+                {
+                    settingsFile = configurationError.Filename;
+                    break;
+                }
+            }
+
+            // Only the per-user file is replaced. A problem in the configuration file that is
+            // installed next to the executable cannot be repaired from here.
+            if (settingsFile == null ||
+                !string.Equals(Path.GetFileName(settingsFile), "user.config", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            try
+            {
+                File.Move(settingsFile, settingsFile + ".corrupt", overwrite: true);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                DiagnosticLogger.LogException("Program.TrySetAsideUserSettingsFile", ex);
+                return false;
+            }
+        }
+
+        private static bool TryRestart(string argument)
+        {
+            string executablePath = GetExecutablePath();
+            if (string.IsNullOrEmpty(executablePath))
+            {
+                return false;
+            }
+
+            try
+            {
+                using Process restartedProcess = Process.Start(new ProcessStartInfo
+                {
+                    UseShellExecute = true,
+                    WorkingDirectory = Environment.CurrentDirectory,
+                    FileName = executablePath,
+                    Arguments = argument
+                });
+                return true;
+            }
+            catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
+            {
+                DiagnosticLogger.LogException("Program.TryRestart", ex);
+                return false;
             }
         }
 
