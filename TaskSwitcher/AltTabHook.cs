@@ -17,6 +17,15 @@ namespace TaskSwitcher
 
     public class AltTabHook : IDisposable
     {
+        /// <summary>
+        /// Raised when Alt+Tab is pressed.
+        /// </summary>
+        /// <remarks>
+        /// Handlers run inside the low-level keyboard hook, through which every key press of the
+        /// whole system passes. They must return quickly: Windows skips a hook that takes too
+        /// long and silently removes it when that keeps happening. Decide whether the key press
+        /// is handled and defer everything else.
+        /// </remarks>
         public event AltTabHookEventHandler Pressed;
         private const int AltKey = 32;
         private const int CtrlKey = 11;
@@ -57,9 +66,18 @@ namespace TaskSwitcher
             bool shiftKeyDown = IsKeyDown(_shiftKey);
             bool ctrlKeyDown = IsKeyDown(_ctrlKey);
 
-            AltTabHookEventArgs eventArgs = OnPressed(shiftKeyDown, ctrlKeyDown);
+            try
+            {
+                AltTabHookEventArgs eventArgs = OnPressed(shiftKeyDown, ctrlKeyDown);
 
-            handled = eventArgs.Handled;
+                handled = eventArgs.Handled;
+            }
+            catch (Exception ex)
+            {
+                // Leave the key press to Windows, so that Alt+Tab keeps working when the
+                // switcher itself fails.
+                DiagnosticLogger.LogException("AltTabHook.OnMessageIntercepted", ex);
+            }
         }
 
         private static bool IsKeyDown(KeyboardKey keyboardKey)

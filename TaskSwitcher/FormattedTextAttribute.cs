@@ -1,7 +1,8 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
-using System.Windows.Markup;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace TaskSwitcher
 {
@@ -32,14 +33,43 @@ namespace TaskSwitcher
             }
 
             string formattedText = (string) e.NewValue ?? string.Empty;
-            formattedText =
-                @"<Span xml:space=""preserve"" xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"">" +
-                formattedText +
-                "</Span>";
 
             textBlock.Inlines.Clear();
-            Span result = (Span) XamlReader.Parse(formattedText);
-            textBlock.Inlines.Add(result);
+            if (formattedText.Length == 0)
+            {
+                return;
+            }
+
+            // The text is the output of XamlHighlighter: escaped text with <Bold> elements around
+            // the matches. It is read as plain XML because this runs on the UI thread for every
+            // row of the list, and the general-purpose XamlReader is far slower for it.
+            try
+            {
+                XElement root = XElement.Parse("<Root>" + formattedText + "</Root>", LoadOptions.PreserveWhitespace);
+                foreach (XNode node in root.Nodes())
+                {
+                    switch (node)
+                    {
+                        case XElement { Name.LocalName: "Bold" } bold:
+                            textBlock.Inlines.Add(new Bold(new Run(bold.Value)));
+                            break;
+                        case XElement element:
+                            textBlock.Inlines.Add(new Run(element.Value));
+                            break;
+                        case XText text:
+                            textBlock.Inlines.Add(new Run(text.Value));
+                            break;
+                    }
+                }
+            }
+            catch (XmlException ex)
+            {
+                // An exception thrown here would surface as an unhandled exception of the
+                // binding that set the value, so the text is shown without formatting instead.
+                DiagnosticLogger.LogException("FormattedTextAttribute.FormattedTextChanged", ex);
+                textBlock.Inlines.Clear();
+                textBlock.Text = formattedText;
+            }
         }
     }
 }

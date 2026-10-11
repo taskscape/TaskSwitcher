@@ -13,7 +13,9 @@ namespace TaskSwitcher
 
         public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
         {
-            return ((bool) value) ? IfTrue : IfFalse;
+            // WPF does not catch exceptions thrown by converters, so a value that is not a
+            // boolean (such as DependencyProperty.UnsetValue) is treated as false.
+            return value is true ? IfTrue : IfFalse;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter,

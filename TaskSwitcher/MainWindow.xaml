@@ -27,11 +27,6 @@
         <KeyBinding Command="local:MainWindow.ScrollListDownCommand" Key="Down" />
     </Window.InputBindings>
 
-    <Window.Resources>
-        <local:WindowHandleToIconConverter x:Key="WindowHandleToIconConverter" />
-        <local:WindowHandleToCachedIconConverter x:Key="WindowHandleToCachedIconConverter" />
-    </Window.Resources>
-
     <Border Padding="3" Background="White" BorderBrush="DarkGray" BorderThickness="1" Name="Border">
         <DockPanel LastChildFill="True">
             <DockPanel Margin="4,0,4,0" Name="HelpPanel" Background="Transparent" Height="0" DockPanel.Dock="Top">
@@ -164,18 +159,11 @@
                                     <ColumnDefinition Width="400" />
                                     <ColumnDefinition Width="106" />
                                 </Grid.ColumnDefinitions>
+                                <!-- The icon is loaded on a background thread by MainWindow. A value converter
+                                     would retrieve it on the UI thread, even with an asynchronous binding. -->
                                 <Image Height="19" Grid.Row="0" Grid.Column="0" Margin="3,0"
-                                       Opacity="{Binding IsBeingClosed, Converter={StaticResource ImageOpacityConverter}, Mode=OneWay}">
-                                    <Image.Source>
-                                        <PriorityBinding>
-                                            <Binding Path="HWnd"
-                                                     Converter="{StaticResource WindowHandleToIconConverter}"
-                                                     IsAsync="True" />
-                                            <Binding Path="HWnd"
-                                                     Converter="{StaticResource WindowHandleToCachedIconConverter}" />
-                                        </PriorityBinding>
-                                    </Image.Source>
-                                </Image>
+                                       Source="{Binding IconImage, Mode=OneWay}"
+                                       Opacity="{Binding IsBeingClosed, Converter={StaticResource ImageOpacityConverter}, Mode=OneWay}" />
                                 <TextBlock local:FormattedTextAttribute.FormattedText="{Binding Path=FormattedTitle}"
                                            Grid.Row="0" Grid.Column="1" Margin="3,0">
                                     <TextBlock.Foreground>

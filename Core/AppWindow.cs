@@ -50,11 +50,28 @@ namespace TaskSwitcher.Core
             {
                 WindowCacheIdentity identity = CacheIdentity;
                 string key = identity.BuildCacheKey("ProcessTitle-");
-                return IconCacheService.Instance.GetOrSet(key, () =>
-                {
-                    using Process process = Process.GetProcessById((int)identity.ProcessId);
-                    return process.ProcessName;
-                }, ProcessTitleCacheDuration);
+                return IconCacheService.Instance.GetOrSet(
+                           key,
+                           () => ReadProcessName(identity.ProcessId),
+                           ProcessTitleCacheDuration)
+                       ?? string.Empty;
+            }
+        }
+
+        private static string ReadProcessName(uint processId)
+        {
+            try
+            {
+                using Process process = Process.GetProcessById((int)processId);
+                return process.ProcessName;
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or
+                                              NotSupportedException or Win32Exception)
+            {
+                // The process has exited or cannot be queried. A window without a readable
+                // process name must not break listing or filtering of the other windows.
+                // Returning null keeps the failure out of the cache.
+                return null;
             }
         }
 
@@ -192,7 +209,7 @@ namespace TaskSwitcher.Core
             {
                 string propName = Marshal.PtrToStringAnsi(lpszString);
                 if (propName != "ApplicationViewCloakType") return 1;
-                hasAppropriateApplicationViewCloakType = data != 1;
+                hasAppropriateApplicationViewCloakType = data != new IntPtr(1);
                 return 0;
             }, IntPtr.Zero);
 
@@ -226,21 +243,7 @@ namespace TaskSwitcher.Core
         private WindowCacheIdentity CreateCacheIdentity()
         {
             uint processId = (uint)ProcessId;
-            long processStartTimeUtcTicks = 0;
-
-            if (processId != 0)
-            {
-                try
-                {
-                    using Process process = Process.GetProcessById((int)processId);
-                    processStartTimeUtcTicks = process.StartTime.ToUniversalTime().Ticks;
-                }
-                catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or
-                                                  NotSupportedException or Win32Exception)
-                {
-                    // Some protected or short-lived processes do not expose their start time.
-                }
-            }
+            long processStartTimeUtcTicks = processId != 0 ? ReadProcessStartTimeUtcTicks(processId) : 0;
 
             if (processStartTimeUtcTicks == 0)
             {
@@ -250,6 +253,44 @@ namespace TaskSwitcher.Core
             }
 
             return new WindowCacheIdentity(HWnd, processId, processStartTimeUtcTicks);
+        }
+
+        /// <summary>
+        /// Returns the UTC start time of a process in ticks, or 0 when it cannot be read.
+        /// </summary>
+        /// <remarks>
+        /// This runs for every window each time the switcher opens, so the start time is read
+        /// through a single limited-access handle instead of System.Diagnostics.Process, which
+        /// is several times slower for the same information.
+        /// </remarks>
+        private static long ReadProcessStartTimeUtcTicks(uint processId)
+        {
+            IntPtr processHandle = WinApi.OpenProcess(
+                WinApi.ProcessAccess.QueryLimitedInformation, false, (int)processId);
+            if (processHandle == IntPtr.Zero)
+            {
+                // Some protected or short-lived processes do not expose their start time.
+                return 0;
+            }
+
+            try
+            {
+                if (!WinApi.GetProcessTimes(processHandle, out long creationFileTime, out _, out _, out _) ||
+                    creationFileTime <= 0)
+                {
+                    return 0;
+                }
+
+                return DateTime.FromFileTimeUtc(creationFileTime).Ticks;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return 0;
+            }
+            finally
+            {
+                WinApi.CloseHandle(processHandle);
+            }
         }
     }
 }

@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
+using System.Windows.Media;
 using TaskSwitcher.Core;
 
 namespace TaskSwitcher
@@ -15,27 +12,19 @@ namespace TaskSwitcher
 
         #region IWindowText Members
 
-        public string WindowTitle
-        {
-            get { return AppWindow.Title; }
-        }
+        // The texts are read once, when the view model is created on the loading thread.
+        // Filtering then works on plain strings instead of querying a window that may be
+        // busy or already gone for every keystroke.
 
-        public string ProcessTitle
-        {
-            get { return AppWindow.ProcessTitle; }
-        }
+        public string WindowTitle { get; } = appWindow.Title ?? string.Empty;
+
+        public string ProcessTitle { get; } = appWindow.ProcessTitle ?? string.Empty;
 
         #endregion
 
         #region Bindable properties
 
-        public IntPtr HWnd
-        {
-            get { return AppWindow.HWnd; }
-        }
-
-        internal string LastFormattedTitleSource { get; set; }
-        internal string LastFormattedProcessTitleSource { get; set; }
+        public IntPtr HWnd { get; } = appWindow.HWnd;
 
         private string _formattedTitle;
 
@@ -44,8 +33,11 @@ namespace TaskSwitcher
             get { return _formattedTitle; }
             set
             {
+                // Every notification makes the row parse and lay out the text again.
+                if (_formattedTitle == value) return;
+
                 _formattedTitle = value;
-                NotifyOfPropertyChange(() => FormattedTitle);
+                NotifyOfPropertyChange();
             }
         }
 
@@ -56,8 +48,26 @@ namespace TaskSwitcher
             get { return _formattedProcessTitle; }
             set
             {
+                if (_formattedProcessTitle == value) return;
+
                 _formattedProcessTitle = value;
-                NotifyOfPropertyChange(() => FormattedProcessTitle);
+                NotifyOfPropertyChange();
+            }
+        }
+
+        private ImageSource _iconImage;
+
+        /// <summary>
+        /// The icon of the window, or null while it has not been loaded yet. The value must be
+        /// frozen because it is assigned from a background thread.
+        /// </summary>
+        public ImageSource IconImage
+        {
+            get { return _iconImage; }
+            set
+            {
+                _iconImage = value;
+                NotifyOfPropertyChange();
             }
         }
 
@@ -69,7 +79,7 @@ namespace TaskSwitcher
             set
             {
                 _isBeingClosed = value;
-                NotifyOfPropertyChange(() => IsBeingClosed);
+                NotifyOfPropertyChange();
             }
         }
 
@@ -79,29 +89,9 @@ namespace TaskSwitcher
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        private void NotifyOfPropertyChange<T>(Expression<Func<T>> property)
+        private void NotifyOfPropertyChange([CallerMemberName] string propertyName = null)
         {
-            PropertyChangedEventHandler handler = PropertyChanged;
-            if (handler != null)
-                handler(this, new PropertyChangedEventArgs(GetPropertyName(property)));
-        }
-
-        private string GetPropertyName<T>(Expression<Func<T>> property)
-        {
-            LambdaExpression lambda = (LambdaExpression) property;
-
-            MemberExpression memberExpression;
-            if (lambda.Body is UnaryExpression)
-            {
-                UnaryExpression unaryExpression = (UnaryExpression) lambda.Body;
-                memberExpression = (MemberExpression) unaryExpression.Operand;
-            }
-            else
-            {
-                memberExpression = (MemberExpression) lambda.Body;
-            }
-
-            return memberExpression.Member.Name;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
         #endregion

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
-using System.Xml.Linq;
+using System.Text;
+using System.Xml;
 using TaskSwitcher.Core.Matchers;
 
 namespace TaskSwitcher.Core
@@ -11,19 +11,61 @@ namespace TaskSwitcher.Core
         {
             if (stringParts == null) return string.Empty;
 
-            XDocument xDocument = new(new XElement("Root"));
+            StringBuilder builder = new();
             foreach (StringPart stringPart in stringParts)
             {
                 if (stringPart.IsMatch)
                 {
-                    xDocument.Root.Add(new XElement("Bold", stringPart.Value));
+                    builder.Append("<Bold>");
+                    AppendEscaped(builder, stringPart.Value);
+                    builder.Append("</Bold>");
                 }
                 else
                 {
-                    xDocument.Root.Add(new XText(stringPart.Value));
+                    AppendEscaped(builder, stringPart.Value);
                 }
             }
-            return string.Join("", xDocument.Root.Nodes().Select(x => x.ToString()).ToArray());
+            return builder.ToString();
+        }
+
+        private static void AppendEscaped(StringBuilder builder, string value)
+        {
+            if (string.IsNullOrEmpty(value)) return;
+
+            for (int index = 0; index < value.Length; index++)
+            {
+                char character = value[index];
+                switch (character)
+                {
+                    case '&':
+                        builder.Append("&amp;");
+                        break;
+                    case '<':
+                        builder.Append("&lt;");
+                        break;
+                    case '>':
+                        builder.Append("&gt;");
+                        break;
+                    case '\r':
+                        builder.Append("&#xD;");
+                        break;
+                    default:
+                        if (char.IsHighSurrogate(character) && index + 1 < value.Length &&
+                            char.IsLowSurrogate(value[index + 1]))
+                        {
+                            builder.Append(character).Append(value[++index]);
+                        }
+                        else if (XmlConvert.IsXmlChar(character))
+                        {
+                            builder.Append(character);
+                        }
+
+                        // Anything else (control characters, unpaired surrogates) cannot be
+                        // represented in XML. Window titles are arbitrary text supplied by other
+                        // applications, so such characters are dropped instead of failing.
+                        break;
+                }
+            }
         }
     }
 }
